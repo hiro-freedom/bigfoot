@@ -1,0 +1,81 @@
+﻿<Window x:Class="SoundSourceVisualizer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sound Source Visualizer"
+        Width="1280"
+        Height="720"
+        Left="0"
+        Top="0"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Focusable="False">
+    <Canvas IsHitTestVisible="False">
+        <Grid x:Name="IndicatorRoot" Canvas.Top="54" Width="108" Height="54" Opacity="0">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="IndicatorTransform" X="0" Y="0" />
+            </Grid.RenderTransform>
+
+            <Border CornerRadius="14"
+                    BorderThickness="1"
+                    BorderBrush="#88DFFF8A"
+                    Background="#33131D09">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" Color="#A2E85C" Opacity="0.55" ShadowDepth="0" />
+                </Border.Effect>
+
+                <UniformGrid Margin="10,10,10,10" Columns="9" VerticalAlignment="Bottom">
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar0Scale" ScaleY="0.35" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar1Scale" ScaleY="0.48" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar2Scale" ScaleY="0.65" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar3Scale" ScaleY="0.85" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#EEFFBF" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar4Scale" ScaleY="1.0" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar5Scale" ScaleY="0.85" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar6Scale" ScaleY="0.65" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar7Scale" ScaleY="0.48" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                    <Rectangle Width="6" Height="24" Fill="#D4FF5B" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                        <Rectangle.RenderTransform>
+                            <ScaleTransform x:Name="Bar8Scale" ScaleY="0.35" />
+                        </Rectangle.RenderTransform>
+                    </Rectangle>
+                </UniformGrid>
+            </Border>
+        </Grid>
+    </Canvas>
+</Window>
