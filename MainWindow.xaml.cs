@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Drawing;
+using Drawing = System.Drawing;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.Windows;
@@ -21,13 +21,23 @@ public partial class MainWindow : Window
     private readonly AudioMonitor _audioMonitor;
     private readonly object _audioLock = new();
     private readonly Forms.NotifyIcon _notifyIcon;
+    private readonly System.Windows.Shapes.Rectangle[] _bars;
     private readonly ScaleTransform[] _barScales;
+    private readonly Forms.ToolStripDropDown _thresholdDropDown;
+    private readonly Forms.TrackBar _thresholdTrackBar;
+    private readonly Forms.ToolStripLabel _thresholdLabel;
+    private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
+    private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
+    private readonly Forms.ToolStripMenuItem _themeBlackMenuItem;
+    private readonly Forms.ToolStripMenuItem _themeWhiteMenuItem;
+    private readonly AppSettings _settings;
 
     private double _targetRatio = 0.5;
     private double _targetLoudness;
     private double _smoothX;
     private double _smoothOpacity;
     private double _wavePhase;
+    private double _silenceThreshold = 0.02;
 
     private static readonly double[] BaseBarProfile =
     {
@@ -38,6 +48,13 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        _settings = AppSettingsStore.Load();
+        _silenceThreshold = Math.Clamp(_settings.SilenceThreshold, 0.0, 0.2);
+
+        _bars = new[]
+        {
+            Bar0, Bar1, Bar2, Bar3, Bar4, Bar5, Bar6, Bar7, Bar8
+        };
         _barScales = new[]
         {
             Bar0Scale, Bar1Scale, Bar2Scale, Bar3Scale, Bar4Scale, Bar5Scale, Bar6Scale, Bar7Scale, Bar8Scale
@@ -49,7 +66,20 @@ public partial class MainWindow : Window
         _audioMonitor.LevelCalculated += OnLevelCalculated;
         _audioMonitor.Start();
 
-        _notifyIcon = CreateNotifyIcon();
+        (_notifyIcon, _excludeMyselfMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
+        (_thresholdDropDown, _thresholdTrackBar, _thresholdLabel) = CreateThresholdDropDown();
+        _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
+        _thresholdTrackBar.ValueChanged += OnThresholdTrackBarValueChanged;
+
+        _excludeMyselfMenuItem.Checked = _settings.ExcludeMyself;
+        _excludeMyselfMenuItem.CheckedChanged += OnExcludeMyselfCheckedChanged;
+        _themeRedMenuItem.Click += OnThemeMenuClick;
+        _themeBlackMenuItem.Click += OnThemeMenuClick;
+        _themeWhiteMenuItem.Click += OnThemeMenuClick;
+
+        ApplyTheme(_settings.ColorTheme);
+        UpdateThresholdLabel();
+        _notifyIcon.MouseUp += OnNotifyIconMouseUp;
 
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -102,18 +132,178 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(AlignToPrimaryScreen);
     }
 
-    private static Forms.NotifyIcon CreateNotifyIcon()
+    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
     {
         var trayMenu = new Forms.ContextMenuStrip();
+
+        var excludeMenuItem = new Forms.ToolStripMenuItem("Exclude Myself")
+        {
+            CheckOnClick = true
+        };
+
+        var themeMenu = new Forms.ToolStripMenuItem("Color Theme");
+        var themeRedMenuItem = new Forms.ToolStripMenuItem("Waveform near red") { CheckOnClick = true };
+        var themeBlackMenuItem = new Forms.ToolStripMenuItem("Waveform near black") { CheckOnClick = true };
+        var themeWhiteMenuItem = new Forms.ToolStripMenuItem("Waveform near white") { CheckOnClick = true };
+        themeMenu.DropDownItems.Add(themeRedMenuItem);
+        themeMenu.DropDownItems.Add(themeBlackMenuItem);
+        themeMenu.DropDownItems.Add(themeWhiteMenuItem);
+
+        trayMenu.Items.Add(themeMenu);
+        trayMenu.Items.Add(excludeMenuItem);
+        trayMenu.Items.Add(new Forms.ToolStripSeparator());
         trayMenu.Items.Add("Exit", null, (_, _) => Application.Current.Shutdown());
 
-        return new Forms.NotifyIcon
+        var notifyIcon = new Forms.NotifyIcon
         {
-            Text = "Sound Source Visualizer",
-            Icon = SystemIcons.Information,
+            Text = "bigfoot",
+            Icon = Drawing.SystemIcons.Information,
             Visible = true,
             ContextMenuStrip = trayMenu
         };
+
+        return (notifyIcon, excludeMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
+    }
+
+    private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar TrackBar, Forms.ToolStripLabel Label) CreateThresholdDropDown()
+    {
+        var label = new Forms.ToolStripLabel();
+        var trackBar = new Forms.TrackBar
+        {
+            Minimum = 0,
+            Maximum = 200,
+            TickFrequency = 10,
+            Width = 180,
+            Height = 36,
+            AutoSize = false
+        };
+
+        var host = new Forms.ToolStripControlHost(trackBar)
+        {
+            AutoSize = false,
+            Width = 190,
+            Height = 42,
+            Margin = new Forms.Padding(6, 0, 6, 6)
+        };
+
+        var dropDown = new Forms.ToolStripDropDown
+        {
+            AutoClose = true
+        };
+
+        var title = new Forms.ToolStripLabel("Set Threshold")
+        {
+            Margin = new Forms.Padding(8, 6, 8, 2),
+            Font = new Drawing.Font("Segoe UI", 9f, Drawing.FontStyle.Bold)
+        };
+
+        label.Margin = new Forms.Padding(8, 0, 8, 2);
+
+        dropDown.Items.Add(title);
+        dropDown.Items.Add(label);
+        dropDown.Items.Add(host);
+        return (dropDown, trackBar, label);
+    }
+
+    private void OnNotifyIconMouseUp(object? sender, Forms.MouseEventArgs e)
+    {
+        if (e.Button != Forms.MouseButtons.Left)
+        {
+            return;
+        }
+
+        if (_thresholdDropDown.Visible)
+        {
+            _thresholdDropDown.Close();
+            return;
+        }
+
+        _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
+        UpdateThresholdLabel();
+
+        var cursor = Forms.Control.MousePosition;
+        _thresholdDropDown.Show(cursor.X - 10, cursor.Y - _thresholdDropDown.GetPreferredSize(System.Drawing.Size.Empty).Height - 8);
+    }
+
+    private void UpdateThresholdLabel()
+    {
+        _thresholdLabel.Text = $"Current: {_silenceThreshold:F3}";
+    }
+
+    private void OnThresholdTrackBarValueChanged(object? sender, EventArgs e)
+    {
+        _silenceThreshold = _thresholdTrackBar.Value / 1000.0;
+        _settings.SilenceThreshold = _silenceThreshold;
+        AppSettingsStore.Save(_settings);
+        UpdateThresholdLabel();
+    }
+
+    private void OnExcludeMyselfCheckedChanged(object? sender, EventArgs e)
+    {
+        _settings.ExcludeMyself = _excludeMyselfMenuItem.Checked;
+        AppSettingsStore.Save(_settings);
+    }
+
+    private void OnThemeMenuClick(object? sender, EventArgs e)
+    {
+        if (sender == _themeRedMenuItem)
+        {
+            ApplyTheme("Red");
+        }
+        else if (sender == _themeBlackMenuItem)
+        {
+            ApplyTheme("Black");
+        }
+        else if (sender == _themeWhiteMenuItem)
+        {
+            ApplyTheme("White");
+        }
+    }
+
+    private void ApplyTheme(string? theme)
+    {
+        var normalizedTheme = theme switch
+        {
+            "Black" => "Black",
+            "White" => "White",
+            _ => "Red"
+        };
+
+        _themeRedMenuItem.Checked = normalizedTheme == "Red";
+        _themeBlackMenuItem.Checked = normalizedTheme == "Black";
+        _themeWhiteMenuItem.Checked = normalizedTheme == "White";
+
+        Color mainColor;
+        Color centerColor;
+
+        if (normalizedTheme == "Black")
+        {
+            mainColor = Color.FromRgb(22, 22, 22);
+            centerColor = Color.FromRgb(70, 70, 70);
+        }
+        else if (normalizedTheme == "White")
+        {
+            mainColor = Color.FromRgb(238, 238, 238);
+            centerColor = Color.FromRgb(255, 255, 255);
+        }
+        else
+        {
+            mainColor = Color.FromRgb(239, 68, 68);
+            centerColor = Color.FromRgb(248, 113, 113);
+        }
+
+        var mainBrush = new SolidColorBrush(mainColor);
+        mainBrush.Freeze();
+        var centerBrush = new SolidColorBrush(centerColor);
+        centerBrush.Freeze();
+
+        for (var i = 0; i < _bars.Length; i++)
+        {
+            _bars[i].Fill = i == 4 ? centerBrush : mainBrush;
+        }
+
+        _settings.ColorTheme = normalizedTheme;
+        AppSettingsStore.Save(_settings);
     }
 
     private void OnLevelCalculated(float left, float right)
@@ -145,8 +335,8 @@ public partial class MainWindow : Window
         // Low-pass smoothing to reduce jitter on fast stereo changes.
         _smoothX += (targetX - _smoothX) * 0.20;
 
-        var targetOpacity = loudness < 0.02 ? 0.0 : 0.30 + loudness * 0.70;
-        _smoothOpacity += (targetOpacity - _smoothOpacity) * 0.15;
+        var targetOpacity = loudness < _silenceThreshold ? 0.0 : 0.30 + loudness * 0.70;
+        _smoothOpacity += (targetOpacity - _smoothOpacity) * 0.55;
 
         IndicatorTransform.X = _smoothX;
         IndicatorRoot.Opacity = _smoothOpacity;
@@ -170,6 +360,13 @@ public partial class MainWindow : Window
         _uiTimer.Stop();
         _audioMonitor.Dispose();
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        _notifyIcon.MouseUp -= OnNotifyIconMouseUp;
+        _thresholdTrackBar.ValueChanged -= OnThresholdTrackBarValueChanged;
+        _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
+        _themeRedMenuItem.Click -= OnThemeMenuClick;
+        _themeBlackMenuItem.Click -= OnThemeMenuClick;
+        _themeWhiteMenuItem.Click -= OnThemeMenuClick;
+        _thresholdDropDown.Dispose();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
     }
