@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>bigfoot</AssemblyName>
+    <RootNamespace>bigfoot</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

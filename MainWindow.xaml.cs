@@ -8,7 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
 
-namespace SoundSourceVisualizer;
+namespace bigfoot;
 
 public partial class MainWindow : Window
 {
@@ -89,6 +89,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Convert physical pixels to WPF DIPs to avoid DPI mismatch.
         var dpi = VisualTreeHelper.GetDpi(this);
         Left = primaryScreen.Bounds.Left / dpi.DpiScaleX;
         Top = primaryScreen.Bounds.Top / dpi.DpiScaleY;
@@ -122,6 +123,7 @@ public partial class MainWindow : Window
 
         lock (_audioLock)
         {
+            // ratio=0 => left, ratio=1 => right.
             _targetRatio = Clamp01(ratio);
             _targetLoudness = Math.Clamp(total * 1.8, 0.0, 1.0);
         }
@@ -140,6 +142,7 @@ public partial class MainWindow : Window
 
         var usableWidth = Math.Max(0, ActualWidth - IndicatorRoot.Width);
         var targetX = usableWidth * ratio;
+        // Low-pass smoothing to reduce jitter on fast stereo changes.
         _smoothX += (targetX - _smoothX) * 0.20;
 
         var targetOpacity = loudness < 0.02 ? 0.0 : 0.30 + loudness * 0.70;
@@ -151,6 +154,7 @@ public partial class MainWindow : Window
         _wavePhase += 0.23 + loudness * 0.42;
         var pan = ratio * 2.0 - 1.0;
 
+        // Build a moving waveform profile while biasing bars toward sound direction.
         for (var i = 0; i < _barScales.Length; i++)
         {
             var position = (i - (_barScales.Length - 1) / 2.0) / ((_barScales.Length - 1) / 2.0);
@@ -189,6 +193,7 @@ public partial class MainWindow : Window
 
     private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
     {
+        // Keep compatibility with 32-bit and 64-bit process targets.
         return IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : GetWindowLongPtr32(hWnd, nIndex);
     }
 

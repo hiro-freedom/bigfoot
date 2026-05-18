@@ -2,7 +2,7 @@ using System;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
-namespace SoundSourceVisualizer;
+namespace bigfoot;
 
 public sealed class AudioMonitor : IDisposable
 {
@@ -21,6 +21,7 @@ public sealed class AudioMonitor : IDisposable
                 return;
             }
 
+            // Capture default render device output (what the user hears).
             _capture = new WasapiLoopbackCapture();
             _capture.DataAvailable += OnDataAvailable;
             _capture.RecordingStopped += OnRecordingStopped;
@@ -62,6 +63,7 @@ public sealed class AudioMonitor : IDisposable
             return;
         }
 
+        // Short-window RMS energy per channel for stable loudness estimation.
         double leftSum = 0;
         double rightSum = 0;
 
@@ -94,6 +96,7 @@ public sealed class AudioMonitor : IDisposable
 
     private static float Read24BitSample(byte[] buffer, int offset)
     {
+        // Manual sign extension for packed 24-bit PCM.
         var sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
         if ((sample & 0x800000) != 0)
         {
