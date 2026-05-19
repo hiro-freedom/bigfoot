@@ -15,12 +15,12 @@
         ShowActivated="False"
         Focusable="False">
     <Canvas IsHitTestVisible="False">
-        <Grid x:Name="IndicatorRoot" Canvas.Top="54" Width="108" Height="54" Opacity="0">
+        <Grid x:Name="IndicatorRoot" Canvas.Top="0" Width="216" Height="108" Opacity="0">
             <Grid.RenderTransform>
                 <TranslateTransform x:Name="IndicatorTransform" X="0" Y="0" />
             </Grid.RenderTransform>
 
-            <Border CornerRadius="14"
+            <Border CornerRadius="28"
                     BorderThickness="1"
                     BorderBrush="#88DFFF8A"
                     Background="#33131D09">
@@ -28,48 +28,48 @@
                     <DropShadowEffect BlurRadius="16" Color="#A2E85C" Opacity="0.55" ShadowDepth="0" />
                 </Border.Effect>
 
-                <UniformGrid Margin="10,10,10,10" Columns="9" VerticalAlignment="Bottom">
-                    <Rectangle x:Name="Bar0" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                <UniformGrid Margin="20,20,20,20" Columns="9" VerticalAlignment="Bottom">
+                    <Rectangle x:Name="Bar0" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar0Scale" ScaleY="0.35" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar1" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar1" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar1Scale" ScaleY="0.48" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar2" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar2" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar2Scale" ScaleY="0.65" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar3" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar3" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar3Scale" ScaleY="0.85" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar4" Width="6" Height="24" Fill="#F97316" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar4" Width="12" Height="48" Fill="#F97316" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar4Scale" ScaleY="1.0" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar5" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar5" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar5Scale" ScaleY="0.85" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar6" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar6" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar6Scale" ScaleY="0.65" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar7" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar7" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar7Scale" ScaleY="0.48" />
                         </Rectangle.RenderTransform>
                     </Rectangle>
-                    <Rectangle x:Name="Bar8" Width="6" Height="24" Fill="#38BDF8" RadiusX="3" RadiusY="3" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
+                    <Rectangle x:Name="Bar8" Width="12" Height="48" Fill="#38BDF8" RadiusX="6" RadiusY="6" VerticalAlignment="Bottom" RenderTransformOrigin="0.5,1">
                         <Rectangle.RenderTransform>
                             <ScaleTransform x:Name="Bar8Scale" ScaleY="0.35" />
                         </Rectangle.RenderTransform>

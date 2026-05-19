@@ -3,6 +3,7 @@ using Drawing = System.Drawing;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -23,9 +24,11 @@ public partial class MainWindow : Window
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly System.Windows.Shapes.Rectangle[] _bars;
     private readonly ScaleTransform[] _barScales;
-    private readonly Forms.ToolStripDropDown _thresholdDropDown;
+    private readonly Forms.ToolStripDropDown _quickSettingsDropDown;
     private readonly Forms.TrackBar _thresholdTrackBar;
     private readonly Forms.ToolStripLabel _thresholdLabel;
+    private readonly Forms.TrackBar _verticalTrackBar;
+    private readonly Forms.ToolStripLabel _verticalLabel;
     private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
     private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
     private readonly Forms.ToolStripMenuItem _themeBlackMenuItem;
@@ -34,10 +37,10 @@ public partial class MainWindow : Window
 
     private double _targetRatio = 0.5;
     private double _targetLoudness;
-    private double _smoothX;
     private double _smoothOpacity;
     private double _wavePhase;
     private double _silenceThreshold = 0.02;
+    private double _verticalPositionRatio = 0.08;
 
     private static readonly double[] BaseBarProfile =
     {
@@ -50,6 +53,7 @@ public partial class MainWindow : Window
 
         _settings = AppSettingsStore.Load();
         _silenceThreshold = Math.Clamp(_settings.SilenceThreshold, 0.0, 0.2);
+        _verticalPositionRatio = Math.Clamp(_settings.VerticalPositionRatio, 0.0, 1.0);
 
         _bars = new[]
         {
@@ -67,9 +71,11 @@ public partial class MainWindow : Window
         _audioMonitor.Start();
 
         (_notifyIcon, _excludeMyselfMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
-        (_thresholdDropDown, _thresholdTrackBar, _thresholdLabel) = CreateThresholdDropDown();
+        (_quickSettingsDropDown, _thresholdTrackBar, _thresholdLabel, _verticalTrackBar, _verticalLabel) = CreateQuickSettingsDropDown();
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
+        _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
         _thresholdTrackBar.ValueChanged += OnThresholdTrackBarValueChanged;
+        _verticalTrackBar.ValueChanged += OnVerticalTrackBarValueChanged;
 
         _excludeMyselfMenuItem.Checked = _settings.ExcludeMyself;
         _excludeMyselfMenuItem.CheckedChanged += OnExcludeMyselfCheckedChanged;
@@ -79,6 +85,8 @@ public partial class MainWindow : Window
 
         ApplyTheme(_settings.ColorTheme);
         UpdateThresholdLabel();
+        UpdateVerticalLabel();
+        UpdateIndicatorVerticalPosition();
         _notifyIcon.MouseUp += OnNotifyIconMouseUp;
 
         _uiTimer = new DispatcherTimer(DispatcherPriority.Render)
@@ -129,7 +137,11 @@ public partial class MainWindow : Window
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
     {
-        Dispatcher.BeginInvoke(AlignToPrimaryScreen);
+        Dispatcher.BeginInvoke(() =>
+        {
+            AlignToPrimaryScreen();
+            UpdateIndicatorVerticalPosition();
+        });
     }
 
     private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
@@ -165,10 +177,10 @@ public partial class MainWindow : Window
         return (notifyIcon, excludeMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
     }
 
-    private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar TrackBar, Forms.ToolStripLabel Label) CreateThresholdDropDown()
+    private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar ThresholdTrackBar, Forms.ToolStripLabel ThresholdLabel, Forms.TrackBar VerticalTrackBar, Forms.ToolStripLabel VerticalLabel) CreateQuickSettingsDropDown()
     {
-        var label = new Forms.ToolStripLabel();
-        var trackBar = new Forms.TrackBar
+        var thresholdLabel = new Forms.ToolStripLabel();
+        var thresholdTrackBar = new Forms.TrackBar
         {
             Minimum = 0,
             Maximum = 200,
@@ -178,7 +190,26 @@ public partial class MainWindow : Window
             AutoSize = false
         };
 
-        var host = new Forms.ToolStripControlHost(trackBar)
+        var thresholdHost = new Forms.ToolStripControlHost(thresholdTrackBar)
+        {
+            AutoSize = false,
+            Width = 190,
+            Height = 42,
+            Margin = new Forms.Padding(6, 0, 6, 2)
+        };
+
+        var verticalLabel = new Forms.ToolStripLabel();
+        var verticalTrackBar = new Forms.TrackBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            TickFrequency = 10,
+            Width = 180,
+            Height = 36,
+            AutoSize = false
+        };
+
+        var verticalHost = new Forms.ToolStripControlHost(verticalTrackBar)
         {
             AutoSize = false,
             Width = 190,
@@ -191,18 +222,21 @@ public partial class MainWindow : Window
             AutoClose = true
         };
 
-        var title = new Forms.ToolStripLabel("Set Threshold")
+        var title = new Forms.ToolStripLabel("Quick Settings")
         {
             Margin = new Forms.Padding(8, 6, 8, 2),
             Font = new Drawing.Font("Segoe UI", 9f, Drawing.FontStyle.Bold)
         };
 
-        label.Margin = new Forms.Padding(8, 0, 8, 2);
+        thresholdLabel.Margin = new Forms.Padding(8, 0, 8, 2);
+        verticalLabel.Margin = new Forms.Padding(8, 0, 8, 2);
 
         dropDown.Items.Add(title);
-        dropDown.Items.Add(label);
-        dropDown.Items.Add(host);
-        return (dropDown, trackBar, label);
+        dropDown.Items.Add(thresholdLabel);
+        dropDown.Items.Add(thresholdHost);
+        dropDown.Items.Add(verticalLabel);
+        dropDown.Items.Add(verticalHost);
+        return (dropDown, thresholdTrackBar, thresholdLabel, verticalTrackBar, verticalLabel);
     }
 
     private void OnNotifyIconMouseUp(object? sender, Forms.MouseEventArgs e)
@@ -212,22 +246,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_thresholdDropDown.Visible)
+        if (_quickSettingsDropDown.Visible)
         {
-            _thresholdDropDown.Close();
+            _quickSettingsDropDown.Close();
             return;
         }
 
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
+        _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
         UpdateThresholdLabel();
+        UpdateVerticalLabel();
 
         var cursor = Forms.Control.MousePosition;
-        _thresholdDropDown.Show(cursor.X - 10, cursor.Y - _thresholdDropDown.GetPreferredSize(System.Drawing.Size.Empty).Height - 8);
+        _quickSettingsDropDown.Show(cursor.X - 10, cursor.Y - _quickSettingsDropDown.GetPreferredSize(Drawing.Size.Empty).Height - 8);
     }
 
     private void UpdateThresholdLabel()
     {
-        _thresholdLabel.Text = $"Current: {_silenceThreshold:F3}";
+        _thresholdLabel.Text = $"Threshold: {_silenceThreshold:F3}";
+    }
+
+    private void UpdateVerticalLabel()
+    {
+        _verticalLabel.Text = $"Vertical Position: {_verticalPositionRatio:P0}";
+    }
+
+    private void UpdateIndicatorVerticalPosition()
+    {
+        var usableHeight = Math.Max(0, ActualHeight - IndicatorRoot.Height);
+        Canvas.SetTop(IndicatorRoot, usableHeight * _verticalPositionRatio);
     }
 
     private void OnThresholdTrackBarValueChanged(object? sender, EventArgs e)
@@ -236,6 +283,15 @@ public partial class MainWindow : Window
         _settings.SilenceThreshold = _silenceThreshold;
         AppSettingsStore.Save(_settings);
         UpdateThresholdLabel();
+    }
+
+    private void OnVerticalTrackBarValueChanged(object? sender, EventArgs e)
+    {
+        _verticalPositionRatio = _verticalTrackBar.Value / 100.0;
+        _settings.VerticalPositionRatio = _verticalPositionRatio;
+        AppSettingsStore.Save(_settings);
+        UpdateVerticalLabel();
+        UpdateIndicatorVerticalPosition();
     }
 
     private void OnExcludeMyselfCheckedChanged(object? sender, EventArgs e)
@@ -331,14 +387,13 @@ public partial class MainWindow : Window
         }
 
         var usableWidth = Math.Max(0, ActualWidth - IndicatorRoot.Width);
-        var targetX = usableWidth * ratio;
-        // Low-pass smoothing to reduce jitter on fast stereo changes.
-        _smoothX += (targetX - _smoothX) * 0.20;
+        var quantizedIndex = (int)Math.Round(Math.Clamp(ratio, 0.0, 1.0) * 6.0);
+        var targetX = usableWidth * (quantizedIndex / 6.0);
 
         var targetOpacity = loudness < _silenceThreshold ? 0.0 : 0.30 + loudness * 0.70;
         _smoothOpacity += (targetOpacity - _smoothOpacity) * 0.55;
 
-        IndicatorTransform.X = _smoothX;
+        IndicatorTransform.X = targetX;
         IndicatorRoot.Opacity = _smoothOpacity;
 
         _wavePhase += 0.23 + loudness * 0.42;
@@ -362,11 +417,12 @@ public partial class MainWindow : Window
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _notifyIcon.MouseUp -= OnNotifyIconMouseUp;
         _thresholdTrackBar.ValueChanged -= OnThresholdTrackBarValueChanged;
+        _verticalTrackBar.ValueChanged -= OnVerticalTrackBarValueChanged;
         _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
         _themeRedMenuItem.Click -= OnThemeMenuClick;
         _themeBlackMenuItem.Click -= OnThemeMenuClick;
         _themeWhiteMenuItem.Click -= OnThemeMenuClick;
-        _thresholdDropDown.Dispose();
+        _quickSettingsDropDown.Dispose();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
     }
