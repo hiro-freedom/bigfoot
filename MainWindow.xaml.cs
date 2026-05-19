@@ -412,7 +412,8 @@ public partial class MainWindow : Window
         var quantizedIndex = (int)Math.Round(Math.Clamp(ratio, 0.0, 1.0) * 6.0);
         var targetX = usableWidth * (quantizedIndex / 6.0);
 
-        var targetOpacity = loudness < _silenceThreshold ? 0.0 : 0.30 + loudness * 0.70;
+        var targetOpacity = loudness < _silenceThreshold ? 0.0 : 0.60 + loudness * 0.40;
+        //var targetOpacity = loudness < _silenceThreshold ? 0.0 : 1.0;
         _smoothOpacity += (targetOpacity - _smoothOpacity) * 0.55;
 
         IndicatorTransform.X = targetX;

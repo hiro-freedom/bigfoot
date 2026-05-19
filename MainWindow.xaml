@@ -25,7 +25,7 @@
                     BorderBrush="#88DFFF8A"
                     Background="#33131D09">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="16" Color="#A2E85C" Opacity="0.55" ShadowDepth="0" />
+                    <DropShadowEffect BlurRadius="16" Color="#A2E85C" Opacity="0" ShadowDepth="0" />
                 </Border.Effect>
 
                 <UniformGrid Margin="20,20,20,20" Columns="9" VerticalAlignment="Bottom">
