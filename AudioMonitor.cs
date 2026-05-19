@@ -10,6 +10,9 @@ public sealed class AudioMonitor : IDisposable
     private WasapiLoopbackCapture? _capture;
     private bool _started;
 
+    public bool ExcludeMyselfEnabled { get; set; }
+    public float SideActivationThreshold { get; set; } = 0.0125f;
+
     public event Action<float, float>? LevelCalculated;
 
     public void Start()
@@ -66,6 +69,7 @@ public sealed class AudioMonitor : IDisposable
         // Short-window RMS energy per channel for stable loudness estimation.
         double leftSum = 0;
         double rightSum = 0;
+        double sideSum = 0;
 
         for (var frame = 0; frame < frameCount; frame++)
         {
@@ -73,12 +77,30 @@ public sealed class AudioMonitor : IDisposable
             var left = ReadSample(format.Encoding, e.Buffer, frameOffset, bytesPerSample);
             var right = ReadSample(format.Encoding, e.Buffer, frameOffset + bytesPerSample, bytesPerSample);
 
+            // Mid-Side processing:
+            // Mid  = (L + R) / 2 (center-panned audio)
+            // Side = (L - R) / 2 (directional difference between channels)
+            // When only center audio is present, Side energy is close to zero.
+            var side = (left - right) * 0.5f;
+
             leftSum += left * left;
             rightSum += right * right;
+            sideSum += side * side;
         }
 
         var leftRms = (float)Math.Sqrt(leftSum / frameCount);
         var rightRms = (float)Math.Sqrt(rightSum / frameCount);
+
+        if (ExcludeMyselfEnabled)
+        {
+            var sideRms = (float)Math.Sqrt(sideSum / frameCount);
+            if (sideRms < SideActivationThreshold)
+            {
+                LevelCalculated?.Invoke(0f, 0f);
+                return;
+            }
+        }
+
         LevelCalculated?.Invoke(leftRms, rightRms);
     }
 

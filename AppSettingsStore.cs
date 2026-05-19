@@ -9,7 +9,7 @@ public sealed class AppSettings
     public double SilenceThreshold { get; set; } = 0.02;
     public double VerticalPositionRatio { get; set; } = 0.08;
     public bool ExcludeMyself { get; set; }
-    public string ColorTheme { get; set; } = "Red";
+    public string ColorTheme { get; set; } = "Default";
 }
 
 public static class AppSettingsStore

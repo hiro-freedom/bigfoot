@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly Forms.TrackBar _verticalTrackBar;
     private readonly Forms.ToolStripLabel _verticalLabel;
     private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
+    private readonly Forms.ToolStripMenuItem _themeDefaultMenuItem;
     private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
     private readonly Forms.ToolStripMenuItem _themeBlackMenuItem;
     private readonly Forms.ToolStripMenuItem _themeWhiteMenuItem;
@@ -67,10 +68,11 @@ public partial class MainWindow : Window
         InitializeOverlayWindow();
 
         _audioMonitor = new AudioMonitor();
+        _audioMonitor.ExcludeMyselfEnabled = _settings.ExcludeMyself;
         _audioMonitor.LevelCalculated += OnLevelCalculated;
         _audioMonitor.Start();
 
-        (_notifyIcon, _excludeMyselfMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
+        (_notifyIcon, _excludeMyselfMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
         (_quickSettingsDropDown, _thresholdTrackBar, _thresholdLabel, _verticalTrackBar, _verticalLabel) = CreateQuickSettingsDropDown();
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
         _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
@@ -79,6 +81,7 @@ public partial class MainWindow : Window
 
         _excludeMyselfMenuItem.Checked = _settings.ExcludeMyself;
         _excludeMyselfMenuItem.CheckedChanged += OnExcludeMyselfCheckedChanged;
+        _themeDefaultMenuItem.Click += OnThemeMenuClick;
         _themeRedMenuItem.Click += OnThemeMenuClick;
         _themeBlackMenuItem.Click += OnThemeMenuClick;
         _themeWhiteMenuItem.Click += OnThemeMenuClick;
@@ -116,7 +119,11 @@ public partial class MainWindow : Window
     {
         ShowActivated = false;
         Focusable = false;
-        Loaded += (_, _) => AlignToPrimaryScreen();
+        Loaded += (_, _) =>
+        {
+            AlignToPrimaryScreen();
+            UpdateIndicatorVerticalPosition();
+        };
     }
 
     private void AlignToPrimaryScreen()
@@ -144,7 +151,7 @@ public partial class MainWindow : Window
         });
     }
 
-    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
+    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
     {
         var trayMenu = new Forms.ContextMenuStrip();
 
@@ -154,9 +161,11 @@ public partial class MainWindow : Window
         };
 
         var themeMenu = new Forms.ToolStripMenuItem("Color Theme");
+        var themeDefaultMenuItem = new Forms.ToolStripMenuItem("Default") { CheckOnClick = true };
         var themeRedMenuItem = new Forms.ToolStripMenuItem("Waveform near red") { CheckOnClick = true };
         var themeBlackMenuItem = new Forms.ToolStripMenuItem("Waveform near black") { CheckOnClick = true };
         var themeWhiteMenuItem = new Forms.ToolStripMenuItem("Waveform near white") { CheckOnClick = true };
+        themeMenu.DropDownItems.Add(themeDefaultMenuItem);
         themeMenu.DropDownItems.Add(themeRedMenuItem);
         themeMenu.DropDownItems.Add(themeBlackMenuItem);
         themeMenu.DropDownItems.Add(themeWhiteMenuItem);
@@ -174,7 +183,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = trayMenu
         };
 
-        return (notifyIcon, excludeMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
+        return (notifyIcon, excludeMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
     }
 
     private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar ThresholdTrackBar, Forms.ToolStripLabel ThresholdLabel, Forms.TrackBar VerticalTrackBar, Forms.ToolStripLabel VerticalLabel) CreateQuickSettingsDropDown()
@@ -273,7 +282,8 @@ public partial class MainWindow : Window
 
     private void UpdateIndicatorVerticalPosition()
     {
-        var usableHeight = Math.Max(0, ActualHeight - IndicatorRoot.Height);
+        var windowHeight = ActualHeight > 0 ? ActualHeight : Height;
+        var usableHeight = Math.Max(0, windowHeight - IndicatorRoot.Height);
         Canvas.SetTop(IndicatorRoot, usableHeight * _verticalPositionRatio);
     }
 
@@ -296,13 +306,18 @@ public partial class MainWindow : Window
 
     private void OnExcludeMyselfCheckedChanged(object? sender, EventArgs e)
     {
+        _audioMonitor.ExcludeMyselfEnabled = _excludeMyselfMenuItem.Checked;
         _settings.ExcludeMyself = _excludeMyselfMenuItem.Checked;
         AppSettingsStore.Save(_settings);
     }
 
     private void OnThemeMenuClick(object? sender, EventArgs e)
     {
-        if (sender == _themeRedMenuItem)
+        if (sender == _themeDefaultMenuItem)
+        {
+            ApplyTheme("Default");
+        }
+        else if (sender == _themeRedMenuItem)
         {
             ApplyTheme("Red");
         }
@@ -322,9 +337,11 @@ public partial class MainWindow : Window
         {
             "Black" => "Black",
             "White" => "White",
-            _ => "Red"
+            "Red" => "Red",
+            _ => "Default"
         };
 
+        _themeDefaultMenuItem.Checked = normalizedTheme == "Default";
         _themeRedMenuItem.Checked = normalizedTheme == "Red";
         _themeBlackMenuItem.Checked = normalizedTheme == "Black";
         _themeWhiteMenuItem.Checked = normalizedTheme == "White";
@@ -342,10 +359,15 @@ public partial class MainWindow : Window
             mainColor = Color.FromRgb(238, 238, 238);
             centerColor = Color.FromRgb(255, 255, 255);
         }
-        else
+        else if (normalizedTheme == "Red")
         {
             mainColor = Color.FromRgb(239, 68, 68);
             centerColor = Color.FromRgb(248, 113, 113);
+        }
+        else
+        {
+            mainColor = Color.FromRgb(56, 189, 248);
+            centerColor = Color.FromRgb(249, 115, 113);
         }
 
         var mainBrush = new SolidColorBrush(mainColor);
@@ -419,6 +441,7 @@ public partial class MainWindow : Window
         _thresholdTrackBar.ValueChanged -= OnThresholdTrackBarValueChanged;
         _verticalTrackBar.ValueChanged -= OnVerticalTrackBarValueChanged;
         _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
+        _themeDefaultMenuItem.Click -= OnThemeMenuClick;
         _themeRedMenuItem.Click -= OnThemeMenuClick;
         _themeBlackMenuItem.Click -= OnThemeMenuClick;
         _themeWhiteMenuItem.Click -= OnThemeMenuClick;
