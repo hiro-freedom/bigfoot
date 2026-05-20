@@ -9,6 +9,7 @@ public sealed class AppSettings
     public double SilenceThreshold { get; set; } = 0.02;
     public double VerticalPositionRatio { get; set; } = 0.08;
     public bool ExcludeMyself { get; set; }
+    public bool UseQuantizedPosition { get; set; } = true;
     public string ColorTheme { get; set; } = "Default";
 }
 

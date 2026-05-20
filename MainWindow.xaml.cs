@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly Forms.TrackBar _verticalTrackBar;
     private readonly Forms.ToolStripLabel _verticalLabel;
     private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
+    private readonly Forms.ToolStripMenuItem _quantizedPositionMenuItem;
     private readonly Forms.ToolStripMenuItem _themeDefaultMenuItem;
     private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
     private readonly Forms.ToolStripMenuItem _themeBlackMenuItem;
@@ -38,10 +39,12 @@ public partial class MainWindow : Window
 
     private double _targetRatio = 0.5;
     private double _targetLoudness;
+    private double _smoothX;
     private double _smoothOpacity;
     private double _wavePhase;
     private double _silenceThreshold = 0.02;
     private double _verticalPositionRatio = 0.08;
+    private bool _useQuantizedPosition = true;
 
     private static readonly double[] BaseBarProfile =
     {
@@ -55,6 +58,7 @@ public partial class MainWindow : Window
         _settings = AppSettingsStore.Load();
         _silenceThreshold = Math.Clamp(_settings.SilenceThreshold, 0.0, 0.2);
         _verticalPositionRatio = Math.Clamp(_settings.VerticalPositionRatio, 0.0, 1.0);
+        _useQuantizedPosition = _settings.UseQuantizedPosition;
 
         _bars = new[]
         {
@@ -72,7 +76,7 @@ public partial class MainWindow : Window
         _audioMonitor.LevelCalculated += OnLevelCalculated;
         _audioMonitor.Start();
 
-        (_notifyIcon, _excludeMyselfMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
+        (_notifyIcon, _excludeMyselfMenuItem, _quantizedPositionMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
         (_quickSettingsDropDown, _thresholdTrackBar, _thresholdLabel, _verticalTrackBar, _verticalLabel) = CreateQuickSettingsDropDown();
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
         _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
@@ -81,6 +85,8 @@ public partial class MainWindow : Window
 
         _excludeMyselfMenuItem.Checked = _settings.ExcludeMyself;
         _excludeMyselfMenuItem.CheckedChanged += OnExcludeMyselfCheckedChanged;
+        _quantizedPositionMenuItem.Checked = _useQuantizedPosition;
+        _quantizedPositionMenuItem.CheckedChanged += OnQuantizedPositionCheckedChanged;
         _themeDefaultMenuItem.Click += OnThemeMenuClick;
         _themeRedMenuItem.Click += OnThemeMenuClick;
         _themeBlackMenuItem.Click += OnThemeMenuClick;
@@ -151,11 +157,16 @@ public partial class MainWindow : Window
         });
     }
 
-    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
+    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem QuantizedPositionMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
     {
         var trayMenu = new Forms.ContextMenuStrip();
 
         var excludeMenuItem = new Forms.ToolStripMenuItem("Exclude Myself")
+        {
+            CheckOnClick = true
+        };
+
+        var quantizedPositionMenuItem = new Forms.ToolStripMenuItem("Use 7-point position")
         {
             CheckOnClick = true
         };
@@ -172,6 +183,7 @@ public partial class MainWindow : Window
 
         trayMenu.Items.Add(themeMenu);
         trayMenu.Items.Add(excludeMenuItem);
+        trayMenu.Items.Add(quantizedPositionMenuItem);
         trayMenu.Items.Add(new Forms.ToolStripSeparator());
         trayMenu.Items.Add("Exit", null, (_, _) => Application.Current.Shutdown());
 
@@ -183,7 +195,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = trayMenu
         };
 
-        return (notifyIcon, excludeMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
+        return (notifyIcon, excludeMenuItem, quantizedPositionMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
     }
 
     private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar ThresholdTrackBar, Forms.ToolStripLabel ThresholdLabel, Forms.TrackBar VerticalTrackBar, Forms.ToolStripLabel VerticalLabel) CreateQuickSettingsDropDown()
@@ -311,6 +323,18 @@ public partial class MainWindow : Window
         AppSettingsStore.Save(_settings);
     }
 
+    private void OnQuantizedPositionCheckedChanged(object? sender, EventArgs e)
+    {
+        _useQuantizedPosition = _quantizedPositionMenuItem.Checked;
+        if (!_useQuantizedPosition)
+        {
+            _smoothX = IndicatorTransform.X;
+        }
+
+        _settings.UseQuantizedPosition = _useQuantizedPosition;
+        AppSettingsStore.Save(_settings);
+    }
+
     private void OnThemeMenuClick(object? sender, EventArgs e)
     {
         if (sender == _themeDefaultMenuItem)
@@ -388,12 +412,13 @@ public partial class MainWindow : Window
     {
         var total = left + right;
         var ratio = total > 1e-6f ? right / total : 0.5f;
+        var boostedLoudness = Math.Pow(Math.Clamp(total * 26.0, 0.0, 1.0), 0.55);
 
         lock (_audioLock)
         {
             // ratio=0 => left, ratio=1 => right.
             _targetRatio = Clamp01(ratio);
-            _targetLoudness = Math.Clamp(total * 1.8, 0.0, 1.0);
+            _targetLoudness = boostedLoudness;
         }
     }
 
@@ -409,8 +434,18 @@ public partial class MainWindow : Window
         }
 
         var usableWidth = Math.Max(0, ActualWidth - IndicatorRoot.Width);
-        var quantizedIndex = (int)Math.Round(Math.Clamp(ratio, 0.0, 1.0) * 6.0);
-        var targetX = usableWidth * (quantizedIndex / 6.0);
+        var targetX = usableWidth * Math.Clamp(ratio, 0.0, 1.0);
+
+        if (_useQuantizedPosition)
+        {
+            var quantizedIndex = (int)Math.Round(Math.Clamp(ratio, 0.0, 1.0) * 6.0);
+            targetX = usableWidth * (quantizedIndex / 6.0);
+        }
+        else
+        {
+            _smoothX += (targetX - _smoothX) * 0.22;
+            targetX = _smoothX;
+        }
 
         var targetOpacity = loudness < _silenceThreshold ? 0.0 : 0.60 + loudness * 0.40;
         //var targetOpacity = loudness < _silenceThreshold ? 0.0 : 1.0;
@@ -442,6 +477,7 @@ public partial class MainWindow : Window
         _thresholdTrackBar.ValueChanged -= OnThresholdTrackBarValueChanged;
         _verticalTrackBar.ValueChanged -= OnVerticalTrackBarValueChanged;
         _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
+        _quantizedPositionMenuItem.CheckedChanged -= OnQuantizedPositionCheckedChanged;
         _themeDefaultMenuItem.Click -= OnThemeMenuClick;
         _themeRedMenuItem.Click -= OnThemeMenuClick;
         _themeBlackMenuItem.Click -= OnThemeMenuClick;
