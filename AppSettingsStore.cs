@@ -10,6 +10,7 @@ public sealed class AppSettings
     public double VerticalPositionRatio { get; set; } = 0.08;
     public bool ExcludeMyself { get; set; }
     public bool UseQuantizedPosition { get; set; } = true;
+    public bool UseFrequencyWeighting { get; set; } = true;
     public string ColorTheme { get; set; } = "Default";
 }
 
