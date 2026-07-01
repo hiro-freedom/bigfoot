@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
     private readonly Forms.ToolStripMenuItem _quantizedPositionMenuItem;
     private readonly Forms.ToolStripMenuItem _frequencyWeightingMenuItem;
+    private readonly Forms.ToolStripMenuItem _frequencyBandAnalysisMenuItem;
     private readonly Forms.ToolStripMenuItem _themeDefaultMenuItem;
     private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
     private readonly Forms.ToolStripMenuItem _themeBlackMenuItem;
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
     private double _verticalPositionRatio = 0.08;
     private bool _useQuantizedPosition = true;
     private bool _useFrequencyWeighting = true;
+    private FrequencyBandAnalysisWindow? _frequencyBandAnalysisWindow;
 
     private static readonly double[] BaseBarProfile =
     {
@@ -80,7 +82,7 @@ public partial class MainWindow : Window
         _audioMonitor.LevelCalculated += OnLevelCalculated;
         _audioMonitor.Start();
 
-        (_notifyIcon, _excludeMyselfMenuItem, _quantizedPositionMenuItem, _frequencyWeightingMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
+        (_notifyIcon, _excludeMyselfMenuItem, _quantizedPositionMenuItem, _frequencyWeightingMenuItem, _frequencyBandAnalysisMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
         (_quickSettingsDropDown, _thresholdTrackBar, _thresholdLabel, _verticalTrackBar, _verticalLabel) = CreateQuickSettingsDropDown();
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
         _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
@@ -93,6 +95,7 @@ public partial class MainWindow : Window
         _quantizedPositionMenuItem.CheckedChanged += OnQuantizedPositionCheckedChanged;
         _frequencyWeightingMenuItem.Checked = _useFrequencyWeighting;
         _frequencyWeightingMenuItem.CheckedChanged += OnFrequencyWeightingCheckedChanged;
+        _frequencyBandAnalysisMenuItem.Click += OnFrequencyBandAnalysisMenuItemClick;
         _themeDefaultMenuItem.Click += OnThemeMenuClick;
         _themeRedMenuItem.Click += OnThemeMenuClick;
         _themeBlackMenuItem.Click += OnThemeMenuClick;
@@ -163,7 +166,7 @@ public partial class MainWindow : Window
         });
     }
 
-    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem QuantizedPositionMenuItem, Forms.ToolStripMenuItem FrequencyWeightingMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
+    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem QuantizedPositionMenuItem, Forms.ToolStripMenuItem FrequencyWeightingMenuItem, Forms.ToolStripMenuItem FrequencyBandAnalysisMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
     {
         var trayMenu = new Forms.ContextMenuStrip();
 
@@ -182,6 +185,8 @@ public partial class MainWindow : Window
             CheckOnClick = true
         };
 
+        var frequencyBandAnalysisMenuItem = new Forms.ToolStripMenuItem("Frequency Band Analysis...");
+
         var themeMenu = new Forms.ToolStripMenuItem("Color Theme");
         var themeDefaultMenuItem = new Forms.ToolStripMenuItem("Default") { CheckOnClick = true };
         var themeRedMenuItem = new Forms.ToolStripMenuItem("Waveform near red") { CheckOnClick = true };
@@ -197,6 +202,8 @@ public partial class MainWindow : Window
         trayMenu.Items.Add(quantizedPositionMenuItem);
         trayMenu.Items.Add(frequencyWeightingMenuItem);
         trayMenu.Items.Add(new Forms.ToolStripSeparator());
+        trayMenu.Items.Add(frequencyBandAnalysisMenuItem);
+        trayMenu.Items.Add(new Forms.ToolStripSeparator());
         trayMenu.Items.Add("Exit", null, (_, _) => Application.Current.Shutdown());
 
         var notifyIcon = new Forms.NotifyIcon
@@ -207,7 +214,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = trayMenu
         };
 
-        return (notifyIcon, excludeMenuItem, quantizedPositionMenuItem, frequencyWeightingMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
+        return (notifyIcon, excludeMenuItem, quantizedPositionMenuItem, frequencyWeightingMenuItem, frequencyBandAnalysisMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
     }
 
     private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar ThresholdTrackBar, Forms.ToolStripLabel ThresholdLabel, Forms.TrackBar VerticalTrackBar, Forms.ToolStripLabel VerticalLabel) CreateQuickSettingsDropDown()
@@ -355,6 +362,38 @@ public partial class MainWindow : Window
         AppSettingsStore.Save(_settings);
     }
 
+    private void OnFrequencyBandAnalysisMenuItemClick(object? sender, EventArgs e)
+    {
+        if (_frequencyBandAnalysisWindow is null)
+        {
+            _frequencyBandAnalysisWindow = new FrequencyBandAnalysisWindow();
+            _frequencyBandAnalysisWindow.Closed += OnFrequencyBandAnalysisWindowClosed;
+        }
+
+        if (!_frequencyBandAnalysisWindow.IsVisible)
+        {
+            _frequencyBandAnalysisWindow.Show();
+        }
+
+        if (_frequencyBandAnalysisWindow.WindowState == WindowState.Minimized)
+        {
+            _frequencyBandAnalysisWindow.WindowState = WindowState.Normal;
+        }
+
+        _frequencyBandAnalysisWindow.Activate();
+    }
+
+    private void OnFrequencyBandAnalysisWindowClosed(object? sender, EventArgs e)
+    {
+        if (_frequencyBandAnalysisWindow is null)
+        {
+            return;
+        }
+
+        _frequencyBandAnalysisWindow.Closed -= OnFrequencyBandAnalysisWindowClosed;
+        _frequencyBandAnalysisWindow = null;
+    }
+
     private void OnThemeMenuClick(object? sender, EventArgs e)
     {
         if (sender == _themeDefaultMenuItem)
@@ -499,10 +538,19 @@ public partial class MainWindow : Window
         _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
         _quantizedPositionMenuItem.CheckedChanged -= OnQuantizedPositionCheckedChanged;
         _frequencyWeightingMenuItem.CheckedChanged -= OnFrequencyWeightingCheckedChanged;
+        _frequencyBandAnalysisMenuItem.Click -= OnFrequencyBandAnalysisMenuItemClick;
         _themeDefaultMenuItem.Click -= OnThemeMenuClick;
         _themeRedMenuItem.Click -= OnThemeMenuClick;
         _themeBlackMenuItem.Click -= OnThemeMenuClick;
         _themeWhiteMenuItem.Click -= OnThemeMenuClick;
+
+        if (_frequencyBandAnalysisWindow is not null)
+        {
+            _frequencyBandAnalysisWindow.Closed -= OnFrequencyBandAnalysisWindowClosed;
+            _frequencyBandAnalysisWindow.Close();
+            _frequencyBandAnalysisWindow = null;
+        }
+
         _quickSettingsDropDown.Dispose();
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();

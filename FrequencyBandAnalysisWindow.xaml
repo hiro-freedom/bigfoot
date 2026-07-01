@@ -1,0 +1,90 @@
+<Window x:Class="bigfoot.FrequencyBandAnalysisWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Frequency Band Analysis"
+        Width="980"
+        Height="640"
+        MinWidth="860"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="#111827">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Frequency Band Analysis"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="#F9FAFB" />
+            <TextBlock Margin="0,8,0,0"
+                       Text="Current phase target: offline, segment-based workflow for per-game HighPass/LowPass recommendations."
+                       FontSize="13"
+                       Foreground="#9CA3AF"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border Grid.Row="2"
+                Background="#1F2937"
+                BorderBrush="#374151"
+                BorderThickness="1"
+                CornerRadius="10"
+                Padding="16">
+            <StackPanel>
+                <TextBlock Text="Iteration 1 Shell"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#F3F4F6" />
+
+                <TextBlock Margin="0,10,0,0"
+                           Text="Planned workflow"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="#E5E7EB" />
+
+                <TextBlock Margin="0,6,0,0"
+                           Text="1) Load pre-recorded local audio files (WAV first)."
+                           Foreground="#D1D5DB" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="2) Label short segments as Footstep / Ambience / Mixed."
+                           Foreground="#D1D5DB" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="3) Aggregate PSD and compare Footstep vs Ambience."
+                           Foreground="#D1D5DB" />
+                <TextBlock Margin="0,4,0,0"
+                           Text="4) Produce recommended HighPassHz / LowPassHz with confidence."
+                           Foreground="#D1D5DB" />
+
+                <Border Margin="0,14,0,0"
+                        Background="#0F172A"
+                        BorderBrush="#334155"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="12">
+                    <TextBlock Text="No runtime DSP changes are applied from this tool in the current phase."
+                               Foreground="#93C5FD"
+                               TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <DockPanel Grid.Row="4"
+                   LastChildFill="False">
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Text="Status: Skeleton window ready"
+                       Foreground="#9CA3AF" />
+            <Button DockPanel.Dock="Right"
+                    Width="96"
+                    Height="34"
+                    Margin="12,0,0,0"
+                    Content="Close"
+                    Click="OnCloseClick" />
+        </DockPanel>
+    </Grid>
+</Window>
