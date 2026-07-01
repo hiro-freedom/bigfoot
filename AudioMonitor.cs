@@ -153,8 +153,11 @@ public sealed class AudioMonitor : IDisposable
 
         if (ExcludeMyselfEnabled)
         {
-            // Temporarily disable FEATURE 1 and use the previous absolute side gate.
-            if (sideRms < SideActivationThreshold)
+            // FEATURE 1: relative directionality gate.
+            // side / mid is more robust than absolute side energy for quiet distant sounds.
+            // Comment out this block to disable relative directionality gating.
+            var relativeDirectionality = sideMetric / (midMetric + 1e-6f);
+            if (relativeDirectionality < SideActivationThreshold)
             {
                 LevelCalculated?.Invoke(0f, 0f);
                 return;
