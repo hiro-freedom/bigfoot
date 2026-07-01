@@ -29,55 +29,130 @@
                        TextWrapping="Wrap" />
         </StackPanel>
 
-        <Border Grid.Row="2"
-                Background="#1F2937"
-                BorderBrush="#374151"
-                BorderThickness="1"
-                CornerRadius="10"
-                Padding="16">
-            <StackPanel>
-                <TextBlock Text="Iteration 1 Shell"
-                           FontSize="16"
-                           FontWeight="SemiBold"
-                           Foreground="#F3F4F6" />
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-                <TextBlock Margin="0,10,0,0"
-                           Text="Planned workflow"
-                           FontSize="13"
-                           FontWeight="SemiBold"
-                           Foreground="#E5E7EB" />
+            <Border Grid.Row="0"
+                    Background="#1F2937"
+                    BorderBrush="#374151"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Margin="0,6,0,0"
-                           Text="1) Load pre-recorded local audio files (WAV first)."
-                           Foreground="#D1D5DB" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="2) Label short segments as Footstep / Ambience / Mixed."
-                           Foreground="#D1D5DB" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="3) Aggregate PSD and compare Footstep vs Ambience."
-                           Foreground="#D1D5DB" />
-                <TextBlock Margin="0,4,0,0"
-                           Text="4) Produce recommended HighPassHz / LowPassHz with confidence."
-                           Foreground="#D1D5DB" />
+                    <Button Grid.Column="0"
+                            x:Name="OpenFileButton"
+                            Width="110"
+                            Height="34"
+                            Content="Open WAV"
+                            Click="OnOpenFileClick" />
 
-                <Border Margin="0,14,0,0"
-                        Background="#0F172A"
-                        BorderBrush="#334155"
-                        BorderThickness="1"
-                        CornerRadius="8"
-                        Padding="12">
-                    <TextBlock Text="No runtime DSP changes are applied from this tool in the current phase."
-                               Foreground="#93C5FD"
-                               TextWrapping="Wrap" />
-                </Border>
-            </StackPanel>
-        </Border>
+                    <TextBlock Grid.Column="2"
+                               x:Name="FilePathText"
+                               VerticalAlignment="Center"
+                               Text="No file loaded"
+                               Foreground="#D1D5DB"
+                               TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2"
+                    Background="#1F2937"
+                    BorderBrush="#374151"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="8" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0"
+                            x:Name="PlayPauseButton"
+                            Width="90"
+                            Height="34"
+                            Content="Play"
+                            IsEnabled="False"
+                            Click="OnPlayPauseClick" />
+
+                    <Button Grid.Column="2"
+                            x:Name="StopButton"
+                            Width="90"
+                            Height="34"
+                            Content="Stop"
+                            IsEnabled="False"
+                            Click="OnStopClick" />
+
+                    <TextBlock Grid.Column="4"
+                               x:Name="CurrentTimeText"
+                               VerticalAlignment="Center"
+                               Text="00:00"
+                               Foreground="#E5E7EB" />
+
+                    <Slider Grid.Column="6"
+                            x:Name="TimelineSlider"
+                            Minimum="0"
+                            Maximum="1"
+                            Value="0"
+                            IsEnabled="False"
+                            ValueChanged="OnTimelineValueChanged"
+                            PreviewMouseLeftButtonDown="OnTimelineMouseLeftButtonDown"
+                            PreviewMouseLeftButtonUp="OnTimelineMouseLeftButtonUp"
+                            LostMouseCapture="OnTimelineLostMouseCapture" />
+
+                    <TextBlock Grid.Column="8"
+                               x:Name="DurationText"
+                               VerticalAlignment="Center"
+                               Text="00:00"
+                               Foreground="#9CA3AF" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="4"
+                    Background="#0F172A"
+                    BorderBrush="#334155"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="10">
+                <Grid>
+                    <Canvas x:Name="WaveformCanvas"
+                            Background="#0B1220"
+                            SizeChanged="OnWaveformCanvasSizeChanged" />
+
+                    <TextBlock Margin="12"
+                               VerticalAlignment="Top"
+                               HorizontalAlignment="Left"
+                               Text="Waveform preview"
+                               Foreground="#64748B" />
+                </Grid>
+            </Border>
+        </Grid>
 
         <DockPanel Grid.Row="4"
                    LastChildFill="False">
             <TextBlock DockPanel.Dock="Left"
+                       x:Name="StatusText"
                        VerticalAlignment="Center"
-                       Text="Status: Skeleton window ready"
+                       Text="Status: Ready"
                        Foreground="#9CA3AF" />
             <Button DockPanel.Dock="Right"
                     Width="96"
