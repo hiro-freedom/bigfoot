@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using IOPath = System.IO.Path;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -29,7 +30,7 @@ public partial class FrequencyBandAnalysisWindow : Window, IDisposable
         WriteIndented = true
     };
 
-    private static readonly string RecommendationDirectory = Path.Combine(
+    private static readonly string RecommendationDirectory = IOPath.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "bigfoot",
         "analysis-recommendations");
@@ -507,7 +508,7 @@ public partial class FrequencyBandAnalysisWindow : Window, IDisposable
             var nowUtc = DateTimeOffset.UtcNow;
             var fileTimestamp = nowUtc.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
             var fileName = $"{profileName}_{fileTimestamp}.json";
-            var fullPath = Path.Combine(RecommendationDirectory, fileName);
+            var fullPath = IOPath.Combine(RecommendationDirectory, fileName);
 
             var payload = RecommendationFileModel.FromRuntime(
                 profileName,
@@ -610,7 +611,7 @@ public partial class FrequencyBandAnalysisWindow : Window, IDisposable
             SaveRecommendationButton.IsEnabled = false;
 
             _appSettings.AnalysisLastProfileName = NormalizeProfileName(model.ProfileName);
-            _appSettings.AnalysisLastRecommendationDirectory = Path.GetDirectoryName(selected.FilePath) ?? RecommendationDirectory;
+            _appSettings.AnalysisLastRecommendationDirectory = IOPath.GetDirectoryName(selected.FilePath) ?? RecommendationDirectory;
             _appSettings.AnalysisLastRecommendationFilePath = selected.FilePath;
             AppSettingsStore.Save(_appSettings);
 
@@ -624,7 +625,7 @@ public partial class FrequencyBandAnalysisWindow : Window, IDisposable
 
             var sourceFileText = string.IsNullOrWhiteSpace(model.SourceAudioFile)
                 ? string.Empty
-                : $", source={Path.GetFileName(model.SourceAudioFile)}";
+                : $", source={IOPath.GetFileName(model.SourceAudioFile)}";
 
             RecommendedBandText.Text =
                 $"Recommended band: {model.HighPassHz} Hz - {model.LowPassHz} Hz (confidence {model.Confidence}, saved {model.CreatedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}{sourceFileText})";
@@ -647,7 +648,7 @@ public partial class FrequencyBandAnalysisWindow : Window, IDisposable
         }
 
         var trimmed = rawProfileName.Trim();
-        var invalidChars = Path.GetInvalidFileNameChars();
+        var invalidChars = IOPath.GetInvalidFileNameChars();
         var buffer = new char[trimmed.Length];
         var idx = 0;
         for (var i = 0; i < trimmed.Length; i++)
