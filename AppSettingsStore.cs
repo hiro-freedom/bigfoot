@@ -12,6 +12,9 @@ public sealed class AppSettings
     public bool UseQuantizedPosition { get; set; } = true;
     public bool UseFrequencyWeighting { get; set; } = true;
     public string ColorTheme { get; set; } = "Default";
+    public string AnalysisLastProfileName { get; set; } = "default";
+    public string AnalysisLastRecommendationDirectory { get; set; } = string.Empty;
+    public string AnalysisLastRecommendationFilePath { get; set; } = string.Empty;
 }
 
 public static class AppSettingsStore

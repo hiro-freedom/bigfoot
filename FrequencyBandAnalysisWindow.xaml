@@ -134,15 +134,232 @@
                     CornerRadius="10"
                     Padding="10">
                 <Grid>
-                    <Canvas x:Name="WaveformCanvas"
-                            Background="#0B1220"
-                            SizeChanged="OnWaveformCanvasSizeChanged" />
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2.1*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="1.4*" />
+                    </Grid.ColumnDefinitions>
 
-                    <TextBlock Margin="12"
-                               VerticalAlignment="Top"
-                               HorizontalAlignment="Left"
-                               Text="Waveform preview"
-                               Foreground="#64748B" />
+                    <Grid Grid.Column="0">
+                        <Canvas x:Name="WaveformCanvas"
+                                Background="#0B1220"
+                                SizeChanged="OnWaveformCanvasSizeChanged"
+                                MouseLeftButtonDown="OnWaveformMouseLeftButtonDown"
+                                MouseMove="OnWaveformMouseMove"
+                                MouseLeftButtonUp="OnWaveformMouseLeftButtonUp"
+                                LostMouseCapture="OnWaveformLostMouseCapture" />
+
+                        <TextBlock Margin="12"
+                                   VerticalAlignment="Top"
+                                   HorizontalAlignment="Left"
+                                   Text="Waveform preview (drag to create a segment range)"
+                                   Foreground="#64748B" />
+                    </Grid>
+
+                    <Border Grid.Column="2"
+                            Background="#111827"
+                            BorderBrush="#374151"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="140" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="120" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0"
+                                       Text="Segment Annotation"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E5E7EB" />
+
+                            <TextBlock Grid.Row="2"
+                                       x:Name="SelectionRangeText"
+                                       Text="Selection: None"
+                                       Foreground="#9CA3AF"
+                                       TextWrapping="Wrap" />
+
+                            <WrapPanel Grid.Row="4">
+                                <Button x:Name="AddFootstepButton"
+                                        Width="92"
+                                        Height="30"
+                                        Margin="0,0,8,8"
+                                        Content="Footstep"
+                                        IsEnabled="False"
+                                        Click="OnAddFootstepClick" />
+                                <Button x:Name="AddAmbienceButton"
+                                        Width="92"
+                                        Height="30"
+                                        Margin="0,0,8,8"
+                                        Content="Ambience"
+                                        IsEnabled="False"
+                                        Click="OnAddAmbienceClick" />
+                                <Button x:Name="AddMixedButton"
+                                        Width="92"
+                                        Height="30"
+                                        Margin="0,0,0,8"
+                                        Content="Mixed"
+                                        IsEnabled="False"
+                                        Click="OnAddMixedClick" />
+                            </WrapPanel>
+
+                            <ListView Grid.Row="6"
+                                      x:Name="SegmentListView"
+                                      Background="#0B1220"
+                                      BorderBrush="#334155"
+                                      BorderThickness="1"
+                                      Foreground="#E5E7EB"
+                                      SelectionChanged="OnSegmentListViewSelectionChanged"
+                                      MouseDoubleClick="OnSegmentListViewMouseDoubleClick">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Width="86"
+                                                        Header="Label"
+                                                        DisplayMemberBinding="{Binding Label}" />
+                                        <GridViewColumn Width="70"
+                                                        Header="Start"
+                                                        DisplayMemberBinding="{Binding StartText}" />
+                                        <GridViewColumn Width="70"
+                                                        Header="End"
+                                                        DisplayMemberBinding="{Binding EndText}" />
+                                        <GridViewColumn Width="70"
+                                                        Header="Len"
+                                                        DisplayMemberBinding="{Binding DurationText}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <WrapPanel Grid.Row="8">
+                                <Button x:Name="SeekSegmentButton"
+                                        Width="102"
+                                        Height="30"
+                                        Margin="0,0,8,0"
+                                        Content="Seek Selected"
+                                        Click="OnSeekSegmentClick" />
+                                <Button x:Name="DeleteSegmentButton"
+                                        Width="112"
+                                        Height="30"
+                                        Content="Delete Selected"
+                                        Click="OnDeleteSegmentClick" />
+                            </WrapPanel>
+
+                            <Button Grid.Row="10"
+                                    x:Name="RunAnalysisButton"
+                                    Height="32"
+                                    Content="Run Segment Analysis"
+                                    Click="OnRunAnalysisClick" />
+
+                            <StackPanel Grid.Row="12">
+                                <TextBlock x:Name="AnalysisStatsText"
+                                           Text="Analysis: waiting for labeled segments"
+                                           Foreground="#9CA3AF"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="RecommendedBandText"
+                                           Margin="0,4,0,0"
+                                           Text="Recommended band: N/A"
+                                           Foreground="#93C5FD"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <Border Grid.Row="14"
+                                    Background="#0B1220"
+                                    BorderBrush="#334155"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="4">
+                                <Canvas x:Name="AnalysisCanvas"
+                                        SizeChanged="OnAnalysisCanvasSizeChanged" />
+                            </Border>
+
+                            <Grid Grid.Row="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           VerticalAlignment="Center"
+                                           Text="Profile"
+                                           Foreground="#9CA3AF" />
+
+                                <TextBox Grid.Column="2"
+                                         x:Name="ProfileNameTextBox"
+                                         Height="28"
+                                         Padding="6,4"
+                                         Text="default"
+                                         Background="#0B1220"
+                                         Foreground="#E5E7EB"
+                                         BorderBrush="#334155"
+                                         BorderThickness="1" />
+                            </Grid>
+
+                            <WrapPanel Grid.Row="18">
+                                <Button x:Name="SaveRecommendationButton"
+                                        Width="132"
+                                        Height="30"
+                                        Margin="0,0,8,0"
+                                        Content="Save Recommendation"
+                                        Click="OnSaveRecommendationClick" />
+                                <Button x:Name="RefreshHistoryButton"
+                                        Width="122"
+                                        Height="30"
+                                        Margin="0,0,8,0"
+                                        Content="Refresh History"
+                                        Click="OnRefreshHistoryClick" />
+                                <Button x:Name="LoadHistoryButton"
+                                        Width="104"
+                                        Height="30"
+                                        Content="Load Selected"
+                                        Click="OnLoadHistoryClick" />
+                            </WrapPanel>
+
+                            <ListView Grid.Row="20"
+                                      x:Name="SavedRecommendationListView"
+                                      Background="#0B1220"
+                                      BorderBrush="#334155"
+                                      BorderThickness="1"
+                                      Foreground="#E5E7EB"
+                                      MouseDoubleClick="OnSavedRecommendationDoubleClick">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Width="88"
+                                                        Header="Profile"
+                                                        DisplayMemberBinding="{Binding ProfileName}" />
+                                        <GridViewColumn Width="100"
+                                                        Header="Created"
+                                                        DisplayMemberBinding="{Binding CreatedLocalText}" />
+                                        <GridViewColumn Width="106"
+                                                        Header="Band"
+                                                        DisplayMemberBinding="{Binding BandText}" />
+                                        <GridViewColumn Width="70"
+                                                        Header="Conf"
+                                                        DisplayMemberBinding="{Binding ConfidenceText}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Grid>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

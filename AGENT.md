@@ -23,10 +23,18 @@
     - Exclude Myself
     - 7-point quantized position
     - Frequency weighting
+    - Frequency Band Analysis...
     - Theme (Default / Red / Black / White)
     - Exit
   - Left-click tray icon opens quick settings (threshold + vertical position sliders).
   - UI animation timer at ~60 FPS updates bar scales, opacity, and horizontal position.
+
+- **Offline Analysis Tool:** `FrequencyBandAnalysisWindow.xaml` + `FrequencyBandAnalysisWindow.xaml.cs`
+  - WAV file loading, playback controls, and timeline seek.
+  - Segment annotation on waveform (`Footstep`, `Ambience`, `Mixed`).
+  - PSD-based offline analysis over labeled segments.
+  - Contrast curve (`Footstep / Ambience`) + confidence-aware recommended band output.
+  - Save/load recommendation history in JSON (`%AppData%\bigfoot\analysis-recommendations`).
 
 - **Settings Persistence:** `AppSettingsStore.cs`
   - JSON in `%AppData%\bigfoot\settings.json`.
@@ -37,6 +45,9 @@
     - `UseQuantizedPosition`
     - `UseFrequencyWeighting`
     - `ColorTheme`
+    - `AnalysisLastProfileName`
+    - `AnalysisLastRecommendationDirectory`
+    - `AnalysisLastRecommendationFilePath`
 
 ## Startup + Lifecycle
 1. `MainWindow` loads settings.
@@ -98,12 +109,15 @@
 - Overlay tracks loud left/right audio direction and fades when quiet.
 
 ## Last 5 changes
-- Restored FEATURE 1 (relative directionality gate) in `AudioMonitor.cs`.
-- Testing note: best current sensitivity is usually `Exclude Myself = OFF` and `Use frequency weighting = ON`.
+- Added tray entry `Frequency Band Analysis...` and integrated a dedicated analysis window.
+- Implemented offline WAV workflow: playback, timeline seek, and waveform preview.
+- Implemented segment annotation workflow (`Footstep` / `Ambience` / `Mixed`) with list management.
+- Implemented PSD-based contrast analysis with confidence-aware recommended `HighPassHz` / `LowPassHz`.
+- Implemented recommendation persistence and history loading from `%AppData%\bigfoot\analysis-recommendations`.
 
 ## Current Phase Goal
 - **Goal:** Implement an offline frequency-band analysis workflow to tune `HighPassHz` / `LowPassHz` per game profile.
-- **Status:** Active target for the current phase (design approved, implementation pending).
+- **Status:** Core workflow implemented (iterations 1-6 complete), now in validation and tuning phase.
 - **Scope boundary:** Keep analysis fully offline/read-only and isolated from the real-time `AudioMonitor` path until recommendations are validated.
 
 ### Approved workflow design (current baseline)
