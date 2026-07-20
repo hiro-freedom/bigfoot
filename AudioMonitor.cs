@@ -18,6 +18,7 @@ public sealed class AudioMonitor : IDisposable
     private int _analysisWindowFrames;
     private float _leftEnvelope;
     private float _rightEnvelope;
+    private float _excludeGateEnvelope;
 
     public bool ExcludeMyselfEnabled { get; set; }
     public bool UseFrequencyWeighting { get; set; } = true;
@@ -153,15 +154,36 @@ public sealed class AudioMonitor : IDisposable
 
         if (ExcludeMyselfEnabled)
         {
-            // FEATURE 1: relative directionality gate.
-            // side / mid is more robust than absolute side energy for quiet distant sounds.
-            // Comment out this block to disable relative directionality gating.
+            // FEATURE 1: hybrid soft gate.
+            // Relative directionality blocks center-panned "myself" sounds.
+            // Absolute side energy prevents tiny fluctuations from opening the gate.
+            // A short gate envelope reduces flicker/chopping on quiet footsteps.
             var relativeDirectionality = sideMetric / (midMetric + 1e-6f);
-            if (relativeDirectionality < SideActivationThreshold)
+
+            var relativeGate = SmoothStep(
+                SideActivationThreshold * 0.50f,
+                SideActivationThreshold * 1.35f,
+                relativeDirectionality);
+
+            const float sideFloorOpen = 0.0030f;
+            const float sideFloorFull = 0.0090f;
+            var absoluteGate = SmoothStep(sideFloorOpen, sideFloorFull, sideMetric);
+
+            var targetGate = Math.Max(relativeGate, absoluteGate * 0.35f);
+            _excludeGateEnvelope = ApplyEnvelope(targetGate, ref _excludeGateEnvelope, attack: 0.55f, release: 0.10f);
+
+            if (_excludeGateEnvelope <= 0.02f)
             {
                 LevelCalculated?.Invoke(0f, 0f);
                 return;
             }
+
+            leftMetric *= _excludeGateEnvelope;
+            rightMetric *= _excludeGateEnvelope;
+        }
+        else
+        {
+            _excludeGateEnvelope = 1f;
         }
 
         // FEATURE 3: attack/release envelope to react quickly but decay smoothly.
@@ -177,6 +199,22 @@ public sealed class AudioMonitor : IDisposable
         var coeff = input >= state ? attack : release;
         state += (input - state) * coeff;
         return state;
+    }
+
+    private static float SmoothStep(float edge0, float edge1, float x)
+    {
+        if (edge1 <= edge0)
+        {
+            return x >= edge1 ? 1f : 0f;
+        }
+
+        var t = Clamp01((x - edge0) / (edge1 - edge0));
+        return t * t * (3f - (2f * t));
+    }
+
+    private static float Clamp01(float value)
+    {
+        return Math.Clamp(value, 0f, 1f);
     }
 
     private static float ReadSample(WaveFormatEncoding encoding, byte[] buffer, int offset, int bytesPerSample)

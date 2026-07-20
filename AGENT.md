@@ -13,7 +13,7 @@
   - Optional band weighting (~120 Hz high-pass + ~3500 Hz low-pass).
   - Computes per-window RMS + peak blended metrics.
   - Uses mid/side metrics for directionality.
-  - Optional "Exclude Myself" gate based on absolute side RMS threshold.
+  - Optional "Exclude Myself" hybrid soft gate (relative directionality + absolute side floor + gate envelope).
   - Applies attack/release smoothing envelope.
   - Emits `(left, right)` via `LevelCalculated` event.
 
@@ -109,11 +109,11 @@
 - Overlay tracks loud left/right audio direction and fades when quiet.
 
 ## Last 5 changes
+- Improved `Exclude Myself` using a hybrid soft gate (relative + absolute side floor) with gate envelope smoothing to reduce missed quiet footsteps.
 - Added tray entry `Frequency Band Analysis...` and integrated a dedicated analysis window.
 - Implemented offline WAV workflow: playback, timeline seek, and waveform preview.
 - Implemented segment annotation workflow (`Footstep` / `Ambience` / `Mixed`) with list management.
 - Implemented PSD-based contrast analysis with confidence-aware recommended `HighPassHz` / `LowPassHz`.
-- Implemented recommendation persistence and history loading from `%AppData%\bigfoot\analysis-recommendations`.
 
 ## Current Phase Goal
 - **Goal:** Implement an offline frequency-band analysis workflow to tune `HighPassHz` / `LowPassHz` per game profile.
@@ -154,32 +154,37 @@
 - `Footstep` vs `Ambience` comparison is more actionable than raw spectral values alone.
 - Keeping the tool offline/read-only minimizes regression risk for overlay responsiveness and real-time audio behavior.
 
-## Later Optimization Backlog
-- Improve `Exclude Myself` to reduce missed quiet footsteps when FEATURE 1 is enabled.
-  - Current issue: the gate can be too aggressive and lower sensitivity in real gameplay.
-  - Candidate directions: lower or adaptive threshold, soft attenuation instead of a hard zero gate, or a hybrid absolute + relative gate.
-- Add adaptive noise-floor logic for dynamic thresholding.
-  - Compute recent baseline noise and adjust activation thresholds per scene.
-  - Goal: keep sensitivity for distant footsteps while reducing false triggers.
-- Add multi-band scoring instead of single full-band metrics.
-  - Split weighted audio into multiple sub-bands and fuse directional evidence.
-  - Goal: improve robustness when other sounds overlap the footstep band.
-- Add event-level footstep detection before direction mapping.
-  - Detect transient footstep-like attacks/decays first, then estimate left/right direction.
-  - Goal: avoid continuous ambience and voice from driving direction output.
-- Add game/profile presets for tuning.
-  - Persist separate parameter presets per game, headset, or map style.
-  - Goal: avoid one-size-fits-all tuning and speed up calibration.
-- Add a frequency-band analysis workflow to tune weighting per game.
-  - Purpose: derive better high-pass/low-pass ranges than a fixed global 120-3500 Hz band.
-  - Keep this as an offline/read-only analysis step before changing runtime DSP.
-  - Read-only analysis plan:
-    - Record representative loopback samples for each game profile: quiet walking, combat walking, and non-footstep ambience.
-    - Compute and review PSD/spectrogram views to identify stable footstep-dominant frequency ranges.
-    - Produce a per-game recommendation sheet (`HighPassHz`, `LowPassHz`, optional notes) and validate with quick A/B listening runs.
-- Add optional advanced DSP feature set (non-ML first).
-  - Candidate features: spectral flux, inter-band energy ratios, zero-crossing rate, short-term autocorrelation.
-  - Use a lightweight score/classifier to gate `footstep` vs `non-footstep`.
-- Evaluate optional ML path after DSP baseline stabilizes.
-  - Export labeled clips and benchmark a small ONNX model for `footstep/non-footstep`.
-  - If accuracy improves materially, add model-assisted gating as an optional mode.
+## Later Optimization Backlog (Prioritized)
+1. **P0 - Adaptive noise-floor logic (high impact, low coupling)**
+   - Compute recent baseline noise and adapt activation thresholds per scene.
+   - Goal: preserve distant footstep sensitivity while reducing false triggers.
+
+2. **P1 - Event-level footstep detection before direction mapping**
+   - Detect transient footstep-like attack/decay events first, then estimate left/right direction.
+   - Goal: prevent continuous ambience/voice from driving direction output.
+   - Dependency: works best after P0 baseline/noise adaptation is in place.
+
+3. **P1 - Multi-band scoring instead of single full-band metrics**
+   - Split weighted audio into multiple sub-bands and fuse directional evidence.
+   - Goal: improve robustness when non-footstep sounds overlap the main footstep band.
+   - Dependency: pair with event-level gating for cleaner per-band evidence.
+
+4. **P2 - Game/profile presets for tuning and deployment**
+   - Persist separate parameter presets per game, headset, or map style.
+   - Goal: avoid one-size-fits-all tuning and speed up calibration.
+   - Dependency: should consume validated outputs from P0/P1 tuning.
+
+5. **P2 - Frequency-band analysis workflow expansion (still offline/read-only)**
+   - Purpose: derive profile-specific high-pass/low-pass ranges beyond fixed 120-3500 Hz.
+   - Plan: record representative samples, analyze PSD/spectrogram, produce recommendation sheets, validate with quick A/B runs.
+   - Dependency: integrates naturally with profile presets once recommendations are stable.
+
+6. **P3 - Optional advanced DSP feature set (non-ML first)**
+   - Candidate features: spectral flux, inter-band energy ratios, zero-crossing rate, short-term autocorrelation.
+   - Goal: build a lightweight score/classifier for `footstep` vs `non-footstep` gating.
+   - Dependency: evaluate after P0-P2 establish a stable baseline.
+
+7. **P4 - Optional ML path after DSP baseline stabilizes**
+   - Export labeled clips and benchmark a small ONNX model for `footstep/non-footstep`.
+   - Goal: enable model-assisted gating only if accuracy gain is material over non-ML DSP.
+   - Dependency: requires stable labels/features and profile workflow from earlier phases.
