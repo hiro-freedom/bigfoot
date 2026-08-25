@@ -10,10 +10,10 @@ public sealed class AudioMonitor : IDisposable
     private WasapiLoopbackCapture? _capture;
     private bool _started;
 
-    private readonly OnePoleHighPassFilter _highPassLeft = new();
-    private readonly OnePoleHighPassFilter _highPassRight = new();
-    private readonly OnePoleLowPassFilter _lowPassLeft = new();
-    private readonly OnePoleLowPassFilter _lowPassRight = new();
+    private readonly BiquadHighPassFilter _highPassLeft = new();
+    private readonly BiquadHighPassFilter _highPassRight = new();
+    private readonly BiquadLowPassFilter _lowPassLeft = new();
+    private readonly BiquadLowPassFilter _lowPassRight = new();
 
     private int _analysisWindowFrames;
     private float _leftEnvelope;
@@ -22,7 +22,7 @@ public sealed class AudioMonitor : IDisposable
 
     public bool ExcludeMyselfEnabled { get; set; }
     public bool UseFrequencyWeighting { get; set; } = true;
-    public float SideActivationThreshold { get; set; } = 0.0125f;
+    public float SideActivationThreshold { get; set; } = 0.05f;
 
     public event Action<float, float>? LevelCalculated;
 
@@ -52,11 +52,12 @@ public sealed class AudioMonitor : IDisposable
         // FEATURE 3: analyze a short trailing window to catch transient footsteps faster.
         _analysisWindowFrames = Math.Max(64, (int)(sampleRate * 0.016)); // ~16ms
 
-        // FEATURE 4: band weighting for footsteps (roughly 120Hz - 3500Hz).
-        _highPassLeft.Configure(sampleRate, 120f);
-        _highPassRight.Configure(sampleRate, 120f);
-        _lowPassLeft.Configure(sampleRate, 3500f);
-        _lowPassRight.Configure(sampleRate, 3500f);
+        // FEATURE 4: band weighting for footsteps.
+        // Tuned to 90Hz - 1200Hz to combine low-frequency footstep thumps with strong mid-high gunshot suppression.
+        _highPassLeft.Configure(sampleRate, 90f);
+        _highPassRight.Configure(sampleRate, 90f);
+        _lowPassLeft.Configure(sampleRate, 1200f);
+        _lowPassRight.Configure(sampleRate, 1200f);
     }
 
     private void OnDataAvailable(object? sender, WaveInEventArgs e)
@@ -160,6 +161,8 @@ public sealed class AudioMonitor : IDisposable
             // A short gate envelope reduces flicker/chopping on quiet footsteps.
             var relativeDirectionality = sideMetric / (midMetric + 1e-6f);
 
+            // Increased threshold from 0.0125f to 0.05f to tightly reject center sounds 
+            // that have minor stereo phase/level imbalances (due to HRTF or 3D audio).
             var relativeGate = SmoothStep(
                 SideActivationThreshold * 0.50f,
                 SideActivationThreshold * 1.35f,
@@ -169,8 +172,10 @@ public sealed class AudioMonitor : IDisposable
             const float sideFloorFull = 0.0090f;
             var absoluteGate = SmoothStep(sideFloorOpen, sideFloorFull, sideMetric);
 
-            var targetGate = Math.Max(relativeGate, absoluteGate * 0.35f);
-            _excludeGateEnvelope = ApplyEnvelope(targetGate, ref _excludeGateEnvelope, attack: 0.55f, release: 0.10f);
+            // Reduced safety leak factor from 0.35f to 0.08f to heavily suppress 
+            // loud centered sounds (like own gunfire) which bleed through the absolute floor.
+            var targetGate = Math.Max(relativeGate, absoluteGate * 0.08f);
+            _excludeGateEnvelope = ApplyEnvelope(targetGate, ref _excludeGateEnvelope, attack: 0.55f, release: 0.12f);
 
             if (_excludeGateEnvelope <= 0.02f)
             {
@@ -275,42 +280,62 @@ public sealed class AudioMonitor : IDisposable
         }
     }
 
-    private sealed class OnePoleLowPassFilter
+    private sealed class BiquadLowPassFilter
     {
-        private float _a;
-        private float _z;
+        private float _b0, _b1, _b2, _a1, _a2;
+        private float _x1, _x2, _y1, _y2;
 
-        public void Configure(int sampleRate, float cutoffHz)
+        public void Configure(int sampleRate, float cutoffHz, float q = 0.707f)
         {
-            var x = (float)Math.Exp(-2.0 * Math.PI * cutoffHz / sampleRate);
-            _a = x;
+            double w0 = 2.0 * Math.PI * cutoffHz / sampleRate;
+            double alpha = Math.Sin(w0) / (2.0 * q);
+            double cosW0 = Math.Cos(w0);
+
+            double a0 = 1.0 + alpha;
+            _b0 = (float)((1.0 - cosW0) / 2.0 / a0);
+            _b1 = (float)((1.0 - cosW0) / a0);
+            _b2 = (float)((1.0 - cosW0) / 2.0 / a0);
+            _a1 = (float)(-2.0 * cosW0 / a0);
+            _a2 = (float)((1.0 - alpha) / a0);
         }
 
         public float Process(float input)
         {
-            _z = ((1f - _a) * input) + (_a * _z);
-            return _z;
+            float output = _b0 * input + _b1 * _x1 + _b2 * _x2 - _a1 * _y1 - _a2 * _y2;
+            _x2 = _x1;
+            _x1 = input;
+            _y2 = _y1;
+            _y1 = output;
+            return output;
         }
     }
 
-    private sealed class OnePoleHighPassFilter
+    private sealed class BiquadHighPassFilter
     {
-        private float _alpha;
-        private float _prevInput;
-        private float _prevOutput;
+        private float _b0, _b1, _b2, _a1, _a2;
+        private float _x1, _x2, _y1, _y2;
 
-        public void Configure(int sampleRate, float cutoffHz)
+        public void Configure(int sampleRate, float cutoffHz, float q = 0.707f)
         {
-            var dt = 1f / sampleRate;
-            var rc = 1f / (2f * (float)Math.PI * cutoffHz);
-            _alpha = rc / (rc + dt);
+            double w0 = 2.0 * Math.PI * cutoffHz / sampleRate;
+            double alpha = Math.Sin(w0) / (2.0 * q);
+            double cosW0 = Math.Cos(w0);
+
+            double a0 = 1.0 + alpha;
+            _b0 = (float)((1.0 + cosW0) / 2.0 / a0);
+            _b1 = (float)(-(1.0 + cosW0) / a0);
+            _b2 = (float)((1.0 + cosW0) / 2.0 / a0);
+            _a1 = (float)(-2.0 * cosW0 / a0);
+            _a2 = (float)((1.0 - alpha) / a0);
         }
 
         public float Process(float input)
         {
-            var output = _alpha * (_prevOutput + input - _prevInput);
-            _prevInput = input;
-            _prevOutput = output;
+            float output = _b0 * input + _b1 * _x1 + _b2 * _x2 - _a1 * _y1 - _a2 * _y2;
+            _x2 = _x1;
+            _x1 = input;
+            _y2 = _y1;
+            _y1 = output;
             return output;
         }
     }

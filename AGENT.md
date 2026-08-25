@@ -10,7 +10,7 @@
 - **Capture + DSP:** `AudioMonitor.cs`
   - Captures default render output via `WasapiLoopbackCapture`.
   - Reads stereo samples (float/16-bit/24-bit/32-bit PCM).
-  - Optional band weighting (~120 Hz high-pass + ~3500 Hz low-pass).
+  - Optional band weighting (~90 Hz high-pass + ~1200 Hz low-pass 2nd-order Biquad Butterworth, tuned for low-end thump + mid-high suppression).
   - Computes per-window RMS + peak blended metrics.
   - Uses mid/side metrics for directionality.
   - Optional "Exclude Myself" hybrid soft gate (relative directionality + absolute side floor + gate envelope).
@@ -175,7 +175,7 @@
    - Dependency: should consume validated outputs from P0/P1 tuning.
 
 5. **P2 - Frequency-band analysis workflow expansion (still offline/read-only)**
-   - Purpose: derive profile-specific high-pass/low-pass ranges beyond fixed 120-3500 Hz.
+   - Purpose: derive profile-specific high-pass/low-pass ranges beyond previous fixed 120-3500 Hz (currently tuned to 90-1200 Hz for low-end + mid-high suppression).
    - Plan: record representative samples, analyze PSD/spectrogram, produce recommendation sheets, validate with quick A/B runs.
    - Dependency: integrates naturally with profile presets once recommendations are stable.
 
