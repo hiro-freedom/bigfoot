@@ -1,2 +1,5 @@
 bin/
 obj/
+__pycache__/
+*.pyc
+.venv/

@@ -36,6 +36,12 @@
   - Contrast curve (`Footstep / Ambience`) + confidence-aware recommended band output.
   - Save/load recommendation history in JSON (`%AppData%\bigfoot\analysis-recommendations`).
 
+- **ML Training Workspace (offline):** `footstep-ml/`
+  - Purpose: train/export ONNX models for AI-enhanced event prediction.
+  - Current baseline model: multi-head CNN (`event_head`, `human_head`, `self_head`).
+  - Event classes: `Footstep`, `Gunshot`, `Other`.
+  - Trigger intent: detect human-related audio (`footstep or gunshot`) while suppressing self-generated sounds when labels are available.
+
 - **Settings Persistence:** `AppSettingsStore.cs`
   - JSON in `%AppData%\bigfoot\settings.json`.
   - Stored values:
@@ -116,43 +122,65 @@
 - Implemented PSD-based contrast analysis with confidence-aware recommended `HighPassHz` / `LowPassHz`.
 
 ## Current Phase Goal
-- **Goal:** Implement an offline frequency-band analysis workflow to tune `HighPassHz` / `LowPassHz` per game profile.
-- **Status:** Core workflow implemented (iterations 1-6 complete), now in validation and tuning phase.
-- **Scope boundary:** Keep analysis fully offline/read-only and isolated from the real-time `AudioMonitor` path until recommendations are validated.
+- **Goal:** Implement AI-enhanced prediction for human-related game audio while preserving stable real-time overlay behavior.
+- **Status:** Offline training template is in place (`footstep-ml/`) and ready for data collection, labeling, training, and ONNX export.
+- **Scope boundary:** Keep model training and data preparation fully offline; runtime integration into the real-time path remains gated/optional until validated.
 
 ### Approved workflow design (current baseline)
-1. **Entry point (tray UX)**
-   - Add a tray context-menu item: `Frequency Band Analysis...`.
-   - Clicking it opens a separate analysis tool window.
+1. **Data source and format**
+   - Start from pre-recorded gameplay video/audio.
+   - Convert source video/audio to **WAV** (`16kHz`, mono, PCM) for training input.
+   - Avoid MP3 for training assets to prevent additional lossy artifacts.
 
-2. **Input model**
-   - Use pre-recorded local audio files (WAV first, optional MP3 support later).
-   - Do not read from live capture in this phase.
+2. **Annotation model (segment-based)**
+   - Label short ranges, not single timestamps.
+   - Event labels for training input: `Footstep`, `Gunshot`, `Ambience`, `Mixed`, `Other`, `Background`, `NonFootstep`.
+   - Runtime class mapping: `Footstep -> 0`, `Gunshot -> 1`, all others -> `Other (2)`.
+   - Optional source labeling for self-suppression: `self_label` (`1=self`, `0=not self`, empty=unknown) or `source` (`self/other/enemy/teammate/unknown`).
 
-3. **Annotation model (segment-based, not single-point)**
-   - Users select short time ranges (segments), not individual timestamps.
-   - Segment labels: `Footstep`, `Ambience`, `Mixed`.
-   - Recommended segment duration: ~200-600 ms.
-   - Recommended minimum sample count per label: 5-10 segments.
+3. **Model baseline**
+   - Use multi-head CNN in `footstep-ml/src/model_cnn.py`:
+     - `event_head`: 3-class logits (`Footstep/Gunshot/Other`).
+     - `human_head`: binary human-event logit.
+     - `self_head`: binary self-event logit.
+   - Baseline trigger idea: human event true AND self event false.
 
-4. **Analysis model**
-   - Compute spectrogram/PSD over labeled segments.
-   - Aggregate spectra by label.
-   - Compare `Footstep` vs `Ambience` to derive a frequency-advantage curve.
-   - Output a recommended band (`HighPassHz`, `LowPassHz`) plus confidence and notes.
+4. **Training and export**
+   - Prepare sliced clips/manifests via `footstep-ml/src/prepare_data.py`.
+   - Train via `footstep-ml/src/train.py`; evaluate via `footstep-ml/src/eval.py`.
+   - Export ONNX via `footstep-ml/src/export_onnx.py` plus `.meta.json`.
 
-5. **Output and persistence**
-   - Generate a per-game recommendation sheet (JSON or equivalent structured output).
-   - Keep recommendation application manual in this phase (no automatic runtime DSP mutation).
-
-6. **Validation loop**
-   - Validate recommendations with quick in-game A/B runs.
-   - Iterate per game/headset/map style before promoting defaults.
+5. **Validation loop**
+   - Validate offline metrics first (`human_f1`, false positives, self suppression behavior).
+   - Then perform in-game A/B checks with feature-gated runtime integration.
+   - Promote defaults only after stable behavior across multiple sessions/maps.
 
 ### Why this design is preferred
-- Segment-level aggregation is more stable than single-point analysis for transient/noisy FPS audio.
-- `Footstep` vs `Ambience` comparison is more actionable than raw spectral values alone.
-- Keeping the tool offline/read-only minimizes regression risk for overlay responsiveness and real-time audio behavior.
+- Segment-based labels are robust for transient FPS audio and easier to scale than point labels.
+- Multi-head output better matches practical goals (`human event` + `self suppression`) than single-head strict class prediction.
+- Keeping data prep/training/export offline minimizes regression risk in the real-time overlay pipeline.
+
+## Annotation Template (30s clip quick start)
+
+Use one row per labeled segment:
+
+```csv
+wav_path,start_sec,end_sec,label,session_id,self_label
+data/raw/demo_001.wav,0.80,1.20,Footstep,delta_s01,0
+data/raw/demo_001.wav,1.55,1.92,Footstep,delta_s01,0
+data/raw/demo_001.wav,2.40,2.52,Gunshot,delta_s01,0
+data/raw/demo_001.wav,3.10,3.80,Ambience,delta_s01,
+data/raw/demo_001.wav,4.20,4.58,Footstep,delta_s01,1
+data/raw/demo_001.wav,5.05,5.16,Gunshot,delta_s01,1
+data/raw/demo_001.wav,6.20,7.40,Other,delta_s01,
+```
+
+Practical labeling rules:
+- Do not mark long sparse ranges (for example `3-10s`) as one `Footstep` segment if there are clear gaps.
+- For footsteps, prefer short burst ranges (`~0.2s - 0.8s`) and split when silence gaps are obvious.
+- For gunshots, use short transients (`~0.08s - 0.3s`).
+- If event type is unclear due to overlap, use `Mixed` (mapped to `Other`).
+- `self_label` can be empty when uncertain; training will skip self-loss for that sample.
 
 ## Later Optimization Backlog (Prioritized)
 1. **P0 - Adaptive noise-floor logic (high impact, low coupling)**
