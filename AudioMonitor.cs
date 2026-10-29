@@ -29,7 +29,7 @@ public sealed class AudioMonitor : IDisposable
     private double _resamplePhase;
 
     public bool UseAiFootstepModel { get; set; } = true;
-    public float AiThreshold { get; set; } = 0.60f;
+    public float AiThreshold { get; set; } = 0.80f;
     public float LatestAiProbability => _latestAiFootstepProbability;
     public bool IsAiModelLoaded => _aiDetector.IsModelLoaded;
     public bool IsAiGpuAccelerated => _aiDetector.IsGpuAccelerated;
