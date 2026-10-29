@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Drawing = System.Drawing;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly Forms.ToolStripMenuItem _excludeMyselfMenuItem;
     private readonly Forms.ToolStripMenuItem _quantizedPositionMenuItem;
     private readonly Forms.ToolStripMenuItem _frequencyWeightingMenuItem;
+    private readonly Forms.ToolStripMenuItem _aiFootstepModelMenuItem;
     private readonly Forms.ToolStripMenuItem _frequencyBandAnalysisMenuItem;
     private readonly Forms.ToolStripMenuItem _themeDefaultMenuItem;
     private readonly Forms.ToolStripMenuItem _themeRedMenuItem;
@@ -79,16 +80,20 @@ public partial class MainWindow : Window
         _audioMonitor = new AudioMonitor();
         _audioMonitor.ExcludeMyselfEnabled = _settings.ExcludeMyself;
         _audioMonitor.UseFrequencyWeighting = _useFrequencyWeighting;
+        _audioMonitor.UseAiFootstepModel = _settings.UseAiFootstepModel;
+        _audioMonitor.AiThreshold = (float)_settings.AiThreshold;
         _audioMonitor.LevelCalculated += OnLevelCalculated;
         _audioMonitor.Start();
 
-        (_notifyIcon, _excludeMyselfMenuItem, _quantizedPositionMenuItem, _frequencyWeightingMenuItem, _frequencyBandAnalysisMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
+        (_notifyIcon, _aiFootstepModelMenuItem, _excludeMyselfMenuItem, _quantizedPositionMenuItem, _frequencyWeightingMenuItem, _frequencyBandAnalysisMenuItem, _themeDefaultMenuItem, _themeRedMenuItem, _themeBlackMenuItem, _themeWhiteMenuItem) = CreateNotifyIcon();
         (_quickSettingsDropDown, _thresholdTrackBar, _thresholdLabel, _verticalTrackBar, _verticalLabel) = CreateQuickSettingsDropDown();
         _thresholdTrackBar.Value = Math.Clamp((int)Math.Round(_silenceThreshold * 1000), _thresholdTrackBar.Minimum, _thresholdTrackBar.Maximum);
         _verticalTrackBar.Value = Math.Clamp((int)Math.Round(_verticalPositionRatio * 100), _verticalTrackBar.Minimum, _verticalTrackBar.Maximum);
         _thresholdTrackBar.ValueChanged += OnThresholdTrackBarValueChanged;
         _verticalTrackBar.ValueChanged += OnVerticalTrackBarValueChanged;
 
+        _aiFootstepModelMenuItem.Checked = _settings.UseAiFootstepModel;
+        _aiFootstepModelMenuItem.CheckedChanged += OnAiFootstepModelCheckedChanged;
         _excludeMyselfMenuItem.Checked = _settings.ExcludeMyself;
         _excludeMyselfMenuItem.CheckedChanged += OnExcludeMyselfCheckedChanged;
         _quantizedPositionMenuItem.Checked = _useQuantizedPosition;
@@ -166,9 +171,14 @@ public partial class MainWindow : Window
         });
     }
 
-    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem QuantizedPositionMenuItem, Forms.ToolStripMenuItem FrequencyWeightingMenuItem, Forms.ToolStripMenuItem FrequencyBandAnalysisMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
+    private static (Forms.NotifyIcon NotifyIcon, Forms.ToolStripMenuItem AiFootstepModelMenuItem, Forms.ToolStripMenuItem ExcludeMenuItem, Forms.ToolStripMenuItem QuantizedPositionMenuItem, Forms.ToolStripMenuItem FrequencyWeightingMenuItem, Forms.ToolStripMenuItem FrequencyBandAnalysisMenuItem, Forms.ToolStripMenuItem ThemeDefaultMenuItem, Forms.ToolStripMenuItem ThemeRedMenuItem, Forms.ToolStripMenuItem ThemeBlackMenuItem, Forms.ToolStripMenuItem ThemeWhiteMenuItem) CreateNotifyIcon()
     {
         var trayMenu = new Forms.ContextMenuStrip();
+
+        var aiFootstepModelMenuItem = new Forms.ToolStripMenuItem("AI Mode (Footstep ONNX)")
+        {
+            CheckOnClick = true
+        };
 
         var excludeMenuItem = new Forms.ToolStripMenuItem("Exclude Myself")
         {
@@ -197,6 +207,8 @@ public partial class MainWindow : Window
         themeMenu.DropDownItems.Add(themeBlackMenuItem);
         themeMenu.DropDownItems.Add(themeWhiteMenuItem);
 
+        trayMenu.Items.Add(aiFootstepModelMenuItem);
+        trayMenu.Items.Add(new Forms.ToolStripSeparator());
         trayMenu.Items.Add(themeMenu);
         trayMenu.Items.Add(excludeMenuItem);
         trayMenu.Items.Add(quantizedPositionMenuItem);
@@ -214,7 +226,7 @@ public partial class MainWindow : Window
             ContextMenuStrip = trayMenu
         };
 
-        return (notifyIcon, excludeMenuItem, quantizedPositionMenuItem, frequencyWeightingMenuItem, frequencyBandAnalysisMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
+        return (notifyIcon, aiFootstepModelMenuItem, excludeMenuItem, quantizedPositionMenuItem, frequencyWeightingMenuItem, frequencyBandAnalysisMenuItem, themeDefaultMenuItem, themeRedMenuItem, themeBlackMenuItem, themeWhiteMenuItem);
     }
 
     private static (Forms.ToolStripDropDown DropDown, Forms.TrackBar ThresholdTrackBar, Forms.ToolStripLabel ThresholdLabel, Forms.TrackBar VerticalTrackBar, Forms.ToolStripLabel VerticalLabel) CreateQuickSettingsDropDown()
@@ -333,6 +345,13 @@ public partial class MainWindow : Window
         AppSettingsStore.Save(_settings);
         UpdateVerticalLabel();
         UpdateIndicatorVerticalPosition();
+    }
+
+    private void OnAiFootstepModelCheckedChanged(object? sender, EventArgs e)
+    {
+        _audioMonitor.UseAiFootstepModel = _aiFootstepModelMenuItem.Checked;
+        _settings.UseAiFootstepModel = _aiFootstepModelMenuItem.Checked;
+        AppSettingsStore.Save(_settings);
     }
 
     private void OnExcludeMyselfCheckedChanged(object? sender, EventArgs e)
@@ -535,6 +554,7 @@ public partial class MainWindow : Window
         _notifyIcon.MouseUp -= OnNotifyIconMouseUp;
         _thresholdTrackBar.ValueChanged -= OnThresholdTrackBarValueChanged;
         _verticalTrackBar.ValueChanged -= OnVerticalTrackBarValueChanged;
+        _aiFootstepModelMenuItem.CheckedChanged -= OnAiFootstepModelCheckedChanged;
         _excludeMyselfMenuItem.CheckedChanged -= OnExcludeMyselfCheckedChanged;
         _quantizedPositionMenuItem.CheckedChanged -= OnQuantizedPositionCheckedChanged;
         _frequencyWeightingMenuItem.CheckedChanged -= OnFrequencyWeightingCheckedChanged;

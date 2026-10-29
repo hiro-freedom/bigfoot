@@ -11,6 +11,8 @@ public sealed class AppSettings
     public bool ExcludeMyself { get; set; }
     public bool UseQuantizedPosition { get; set; } = true;
     public bool UseFrequencyWeighting { get; set; } = true;
+    public bool UseAiFootstepModel { get; set; } = true;
+    public double AiThreshold { get; set; } = 0.60;
     public string ColorTheme { get; set; } = "Default";
     public string AnalysisLastProfileName { get; set; } = "default";
     public string AnalysisLastRecommendationDirectory { get; set; } = string.Empty;

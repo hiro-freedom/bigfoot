@@ -20,6 +20,20 @@ public sealed class AudioMonitor : IDisposable
     private float _rightEnvelope;
     private float _excludeGateEnvelope;
 
+    // AI Recognition Model & Sliding Resampling Buffer
+    private readonly OnnxFootstepDetector _aiDetector = new();
+    private readonly float[] _aiPcmRingBuffer = new float[OnnxFootstepDetector.WindowSamples];
+    private int _aiBufferWritePos;
+    private int _aiHopCounter;
+    private float _latestAiFootstepProbability;
+    private double _resamplePhase;
+
+    public bool UseAiFootstepModel { get; set; } = true;
+    public float AiThreshold { get; set; } = 0.60f;
+    public float LatestAiProbability => _latestAiFootstepProbability;
+    public bool IsAiModelLoaded => _aiDetector.IsModelLoaded;
+    public bool IsAiGpuAccelerated => _aiDetector.IsGpuAccelerated;
+
     public bool ExcludeMyselfEnabled { get; set; }
     public bool UseFrequencyWeighting { get; set; } = true;
     public float SideActivationThreshold { get; set; } = 0.05f;
@@ -191,12 +205,68 @@ public sealed class AudioMonitor : IDisposable
             _excludeGateEnvelope = 1f;
         }
 
+        // --- AI Footstep Model Processing & Gating ---
+        ProcessAiInference(e.Buffer, format, frameCount, blockAlign, bytesPerSample);
+
+        if (UseAiFootstepModel && _aiDetector.IsModelLoaded)
+        {
+            // If AI mode is enabled, only pass through if AI footstep probability exceeds threshold.
+            // When below threshold, smoothly attenuate to silence to prevent false alarms from wind/gunfire/ambient.
+            var aiGate = _latestAiFootstepProbability >= AiThreshold ? 1f : 0f;
+            leftMetric *= aiGate;
+            rightMetric *= aiGate;
+        }
+
         // FEATURE 3: attack/release envelope to react quickly but decay smoothly.
         // Comment out this block to output unsmoothed metrics.
         var leftSmoothed = ApplyEnvelope(leftMetric, ref _leftEnvelope, attack: 0.55f, release: 0.20f);
         var rightSmoothed = ApplyEnvelope(rightMetric, ref _rightEnvelope, attack: 0.55f, release: 0.20f);
 
         LevelCalculated?.Invoke(leftSmoothed, rightSmoothed);
+    }
+
+    private void ProcessAiInference(byte[] buffer, WaveFormat format, int frameCount, int blockAlign, int bytesPerSample)
+    {
+        if (!UseAiFootstepModel || !_aiDetector.IsModelLoaded)
+        {
+            return;
+        }
+
+        var sourceRate = format.SampleRate;
+        var step = (double)sourceRate / OnnxFootstepDetector.TargetSampleRate; // e.g. 48000 / 32000 = 1.5
+
+        // Downmix stereo to mono and resample into AI ring buffer
+        for (var frame = 0; frame < frameCount; frame++)
+        {
+            _resamplePhase += 1.0;
+            if (_resamplePhase >= step)
+            {
+                _resamplePhase -= step;
+
+                var frameOffset = frame * blockAlign;
+                var left = ReadSample(format.Encoding, buffer, frameOffset, bytesPerSample);
+                var right = ReadSample(format.Encoding, buffer, frameOffset + bytesPerSample, bytesPerSample);
+                var mono = (left + right) * 0.5f;
+
+                _aiPcmRingBuffer[_aiBufferWritePos] = mono;
+                _aiBufferWritePos = (_aiBufferWritePos + 1) % OnnxFootstepDetector.WindowSamples;
+
+                _aiHopCounter++;
+                // Hop size: 50ms at 32kHz = 1600 samples
+                if (_aiHopCounter >= 1600)
+                {
+                    _aiHopCounter = 0;
+
+                    // Unroll ring buffer into continuous 12800 samples in chronological order
+                    var orderedPcm = new float[OnnxFootstepDetector.WindowSamples];
+                    var part1Len = OnnxFootstepDetector.WindowSamples - _aiBufferWritePos;
+                    Array.Copy(_aiPcmRingBuffer, _aiBufferWritePos, orderedPcm, 0, part1Len);
+                    Array.Copy(_aiPcmRingBuffer, 0, orderedPcm, part1Len, _aiBufferWritePos);
+
+                    _latestAiFootstepProbability = _aiDetector.Predict(orderedPcm);
+                }
+            }
+        }
     }
 
     private static float ApplyEnvelope(float input, ref float state, float attack, float release)
@@ -278,6 +348,8 @@ public sealed class AudioMonitor : IDisposable
 
             _started = false;
         }
+
+        _aiDetector.Dispose();
     }
 
     private sealed class BiquadLowPassFilter
